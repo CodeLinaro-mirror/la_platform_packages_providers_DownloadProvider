@@ -26,6 +26,7 @@ import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.text.format.Formatter;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,11 +35,15 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.ProgressBar;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+
+import android.os.Environment;
+import java.lang.reflect.Method;
 
 /**
  * List adapter for Cursors returned by {@link DownloadManager}.
@@ -62,7 +67,10 @@ public class DownloadAdapter extends CursorAdapter {
     private final int mDateColumnId;
     private final int mIdColumnId;
     private final int mFileNameColumnId;
-
+	//added for cmcc test download ui show download file path start 
+    private int mLocalUriColumnId;
+    private static final String LOGTAG = "DownloadAdapter";
+	//added for cmcc test download ui show download file path end
     public DownloadAdapter(DownloadList downloadList, Cursor cursor) {
         super(downloadList, cursor);
         mDownloadList = downloadList;
@@ -85,6 +93,7 @@ public class DownloadAdapter extends CursorAdapter {
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP);
         mFileNameColumnId =
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_FILENAME);
+        mLocalUriColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI);	//added for cmcc test download ui show download file path
     }
 
     public View newView() {
@@ -111,8 +120,19 @@ public class DownloadAdapter extends CursorAdapter {
         if (title.isEmpty()) {
             title = mResources.getString(R.string.missing_title);
         }
+		//added for cmcc test download ui show download file path start
+        String saveDownloadPath = mCursor.getString(mLocalUriColumnId);
+        String saveDownloadPathForUser = null;
+        if (saveDownloadPath != null) {
+            String saveDownloadPathTemp = Uri.decode(saveDownloadPath);
+            saveDownloadPathTemp = saveDownloadPathTemp.substring(7);
+            saveDownloadPath = saveDownloadPathTemp.substring(0, saveDownloadPathTemp.lastIndexOf('/') + 1);
+            saveDownloadPathForUser = getDownloadPathForUser(mResources, saveDownloadPath);
+        }
+		//added for cmcc test download ui show download file path end
         setTextForView(convertView, R.id.download_title, title);
         setTextForView(convertView, R.id.domain, mCursor.getString(mDescriptionColumnId));
+        setTextForView(convertView,R.id.local_uri, saveDownloadPathForUser);//added for cmcc test download ui show download file path 
         setTextForView(convertView, R.id.size_text, getSizeText());
 
         final int status = mCursor.getInt(mStatusColumnId);
@@ -234,5 +254,107 @@ public class DownloadAdapter extends CursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         bindView(view, cursor.getPosition());
+    }
+    
+        /**
+     * if support Phone Storage
+     * 
+     * @return boolean true support Phone Storage ,false will be not
+     */
+    private boolean isPhoneStorageSupported() {
+        Method[] methods = Environment.class.getMethods();
+        Boolean isPhoneStorageSupported = false;
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("isPhoneStorageSupported")) {
+                try {
+                    isPhoneStorageSupported = (Boolean) methods[idx].invoke(Environment.class);
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    if (isPhoneStorageSupported) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    private String getDownloadPathForUser(Resources resources, String downloadPath) {
+        if (downloadPath == null) {
+            return downloadPath;
+        }
+        final String phoneStorageDir;
+        final String sdCardDir = Environment.getExternalStorageDirectory().getPath();;
+        if (isPhoneStorageSupported()) {
+            phoneStorageDir = getPhoneStorageDirectory();
+        } else {
+            phoneStorageDir = null;       
+        } 
+        if (downloadPath.startsWith(sdCardDir)) {
+            String sdCardLabel = resources.getString(R.string.download_path_sd_card_label);
+            downloadPath = downloadPath.replace(sdCardDir, sdCardLabel);
+        } else if ((phoneStorageDir != null) && downloadPath.startsWith(phoneStorageDir)) {
+            String phoneStorageLabel = resources.getString(R.string.download_path_phone_stroage_label);
+           downloadPath = downloadPath.replace(phoneStorageDir, phoneStorageLabel);
+        }
+        Log.e(LOGTAG,"----------  download Path for user -----------" + downloadPath);
+        return  downloadPath;       
+    }
+  /**
+     * get Phone Storage Directory
+     * 
+     * @return String  get Phone Storage Directory
+     */
+    private String getPhoneStorageDirectory() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageDirectory = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getPhoneStorageDirectory")) {
+                try {
+                    File phoneFile = (File) methods[idx].invoke(Environment.class);
+                    if (phoneFile != null) {
+                        phoneStorageDirectory = phoneFile.getPath();
+                    }
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- getPhoneStorageDirectory exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    return phoneStorageDirectory;
+
+
+                }
+            }
+        }
+        return phoneStorageDirectory;
+    }
+
+
+    /**
+     * get Phone Stroage State 
+     * 
+     * @return String true Phone Stroage State 
+     */
+    private String getPhoneStorageState() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageState = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getPhoneStorageState")) {
+                try {
+                    phoneStorageState = (String) methods[idx].invoke(Environment.class);
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- getPhoneStorageState exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    return phoneStorageState;
+
+
+                }
+            }
+        }
+        return phoneStorageState;
     }
 }

@@ -117,4 +117,8 @@
         [CHAR LIMIT = 20] -->
     <string name="download_share_dialog">Share via</string>
 
+    <!-- added for cmcc test download ui show download file path start -->
+    <string name="download_path_phone_stroage_label">/Phone Stroage</string>
+
+    <string name="download_path_sd_card_label">/SD card</string>
 </resources>
