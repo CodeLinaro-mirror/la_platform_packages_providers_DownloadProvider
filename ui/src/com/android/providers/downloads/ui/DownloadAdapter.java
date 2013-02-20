@@ -32,6 +32,7 @@ import android.view.ViewGroup;
 import android.widget.CursorAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.ProgressBar;
 
 import java.text.DateFormat;
 import java.util.Calendar;
@@ -53,6 +54,9 @@ public class DownloadAdapter extends CursorAdapter {
     private final int mDescriptionColumnId;
     private final int mStatusColumnId;
     private final int mReasonColumnId;
+	//added for cmcc test download ui show progress start 
+    private final int mCurrentBytesColumnId;
+	//added for cmcc test download ui show progress end
     private final int mTotalBytesColumnId;
     private final int mMediaTypeColumnId;
     private final int mDateColumnId;
@@ -73,7 +77,10 @@ public class DownloadAdapter extends CursorAdapter {
         mStatusColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS);
         mReasonColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON);
         mTotalBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
-        mMediaTypeColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIA_TYPE);
+        //added for cmcc test download ui show progress start 
+		mCurrentBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
+       //added for cmcc test download ui show progress end 
+	    mMediaTypeColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIA_TYPE);
         mDateColumnId =
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP);
         mFileNameColumnId =
@@ -115,6 +122,8 @@ public class DownloadAdapter extends CursorAdapter {
         } else {
             statusText = mResources.getString(getStatusStringId(status));
         }
+		setProgressBar(convertView);//added for cmcc test download ui show progress
+
         setTextForView(convertView, R.id.status_text, statusText);
 
         ((DownloadItem) convertView).getCheckBox()
@@ -200,7 +209,21 @@ public class DownloadAdapter extends CursorAdapter {
         TextView view = (TextView) parent.findViewById(textViewId);
         view.setText(text);
     }
+	//added for cmcc test download ui show progress start 
+    private void setProgressBar(View parent) {
+        ProgressBar progressbar = ((DownloadItem) parent).getProgressBar();
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
 
+        if (downloadstatus == DownloadManager.STATUS_FAILED
+           || downloadstatus == DownloadManager.STATUS_SUCCESSFUL) {
+            progressbar.setVisibility(View.GONE);
+        } else {
+            progressbar.setVisibility(View.VISIBLE);
+            progressbar.setMax(mCursor.getInt(mTotalBytesColumnId));
+            progressbar.setProgress(mCursor.getInt(mCurrentBytesColumnId));
+        }
+    }
+	//added for cmcc test download ui show progress end
     // CursorAdapter overrides
 
     @Override

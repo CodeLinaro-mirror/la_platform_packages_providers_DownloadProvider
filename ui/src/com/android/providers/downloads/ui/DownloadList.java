@@ -64,6 +64,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import java.io.File;
+import android.text.TextUtils;
 /**
  *  View showing a list of all downloads the Download Manager knows about.
  */

@@ -41,7 +41,7 @@ import java.util.List;
 import libcore.io.ErrnoException;
 import libcore.io.Libcore;
 import libcore.io.StructStat;
-
+import java.lang.reflect.Method;
 /**
  * Manages the storage space consumed by Downloads Data dir. When space falls below
  * a threshold limit (set in resource xml files), starts cleanup of the Downloads data dir
@@ -84,6 +84,8 @@ class StorageManager {
     /** misc members */
     private final Context mContext;
 
+    private static String INTERNAL_STORAGE_DIR; 
+    public static final String LOGTAG = "StorageManager";
     /**
      * maintains Singleton instance of this class
      */
@@ -100,6 +102,11 @@ class StorageManager {
         mExternalStorageDir = Environment.getExternalStorageDirectory();
         mSystemCacheDir = Environment.getDownloadCacheDirectory();
         startThreadToCleanupDatabaseAndPurgeFileSystem();
+        if (isPhoneStorageSupported()) {
+            INTERNAL_STORAGE_DIR = getPhoneStorageDirectory();
+       } else {
+            INTERNAL_STORAGE_DIR = null;          
+        }
     }
 
     /** How often should database and filesystem be cleaned up to remove spurious files
@@ -165,7 +172,11 @@ class StorageManager {
                 dir = mSystemCacheDir;
                 break;
             case Downloads.Impl.DESTINATION_FILE_URI:
-                if (path.startsWith(mExternalStorageDir.getPath())) {
+                if (isPhoneStorageSupported() && path.startsWith(INTERNAL_STORAGE_DIR)) {
+
+                    Log.e(LOGTAG,"download dir is " + INTERNAL_STORAGE_DIR);
+                    dir = new File(INTERNAL_STORAGE_DIR);
+                } else if (path.startsWith(mExternalStorageDir.getPath())) {
                     dir = mExternalStorageDir;
                 } else if (path.startsWith(mDownloadDataDir.getPath())) {
                     dir = mDownloadDataDir;
@@ -191,11 +202,13 @@ class StorageManager {
         if (targetBytes == 0) {
             return;
         }
+        if (!(isPhoneStorageSupported() && root.getPath().startsWith(INTERNAL_STORAGE_DIR))){
         if (destination == Downloads.Impl.DESTINATION_FILE_URI ||
                 destination == Downloads.Impl.DESTINATION_EXTERNAL) {
             if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
                 throw new StopRequestException(Downloads.Impl.STATUS_DEVICE_NOT_FOUND_ERROR,
                         "external media not mounted");
+                }
             }
         }
         // is there enough space in the file system of the given param 'root'.
@@ -480,5 +493,106 @@ class StorageManager {
 
     private synchronized void resetBytesDownloadedSinceLastCheckOnSpace() {
         mBytesDownloadedSinceLastCheckOnSpace = 0;
+    }
+    
+    /**
+     * if support Phone Storage
+     * 
+     * @return boolean true support Phone Storage ,false will be not
+     */
+    public static boolean isPhoneStorageSupported() {
+        Method[] methods = Environment.class.getMethods();
+        Boolean isPhoneStorageSupported = false;
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("isPhoneStorageSupported")) {
+                try {
+                    isPhoneStorageSupported = (Boolean) methods[idx].invoke(Environment.class);
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    if (isPhoneStorageSupported) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * get Phone Storage Directory
+     * 
+     * @return String  get Phone Storage Directory
+     */
+    public static String getPhoneStorageDirectory() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageDirectory = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getPhoneStorageDirectory")) {
+                try {
+                    File phoneFile = (File) methods[idx].invoke(Environment.class);
+                    if (phoneFile != null) {
+                        phoneStorageDirectory = phoneFile.getPath();
+                    }
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- getPhoneStorageDirectory exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    return phoneStorageDirectory;
+
+
+                }
+            }
+        }
+        return phoneStorageDirectory;
+    }
+
+
+    /**
+     * get Phone Stroage State 
+     * 
+     * @return String true Phone Stroage State 
+     */
+    public static String getPhoneStorageState() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageState = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getPhoneStorageState")) {
+                try {
+                    phoneStorageState = (String) methods[idx].invoke(Environment.class);
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "-------- getPhoneStorageState exception------");
+                } finally {
+                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
+                    return phoneStorageState;
+
+
+                }
+            }
+        }
+        return phoneStorageState;
+    }
+    
+    public static String getDownloadPathForUser(String sdCardLabel, String phoneStorageLabel, String downloadPath) {
+        if (downloadPath == null) {
+            return downloadPath;
+        }
+        final String phoneStorageDir;
+        final String sdCardDir = Environment.getExternalStorageDirectory().getPath();;
+        if (isPhoneStorageSupported()) {
+            phoneStorageDir = getPhoneStorageDirectory();
+        } else {
+            phoneStorageDir = null;       
+        } 
+        if (downloadPath.startsWith(sdCardDir)) {  
+            downloadPath = downloadPath.replace(sdCardDir, sdCardLabel);
+        } else if ((phoneStorageDir != null) && downloadPath.startsWith(phoneStorageDir)) {
+           downloadPath = downloadPath.replace(phoneStorageDir, phoneStorageLabel);
+        }
+        Log.e(LOGTAG,"----------  download Path for user -----------" + downloadPath);
+        return  downloadPath;       
     }
 }

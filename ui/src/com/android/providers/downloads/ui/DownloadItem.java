@@ -24,6 +24,7 @@ import android.widget.CheckBox;
 import android.widget.Checkable;
 import android.widget.GridLayout;
 import android.widget.RelativeLayout;
+import android.widget.ProgressBar;
 
 /**
  * This class customizes RelativeLayout to directly handle clicks on the left part of the view and
@@ -36,6 +37,9 @@ public class DownloadItem extends GridLayout implements Checkable {
 
     private boolean mIsInDownEvent = false;
     private CheckBox mCheckBox;
+	//added for cmcc test download ui show progress start 
+    private ProgressBar mProgressBar;
+	//added for cmcc test download ui show progress end 
     private long mDownloadId;
     private String mFileName;
     private String mMimeType;
@@ -66,7 +70,8 @@ public class DownloadItem extends GridLayout implements Checkable {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mCheckBox = (CheckBox) findViewById(R.id.download_checkbox);
+        mCheckBox = (CheckBox) findViewById(R.id.download_checkbox);		
+        mProgressBar = (ProgressBar)findViewById(R.id.progressbar);//added for cmcc test download ui show progress
     }
 
     public void setData(long downloadId, int position, String fileName, String mimeType) {
@@ -138,7 +143,13 @@ public class DownloadItem extends GridLayout implements Checkable {
     public CheckBox getCheckBox() {
         return this.mCheckBox;
     }
-
+	
+	//added for cmcc test download ui show progress start 
+    public ProgressBar getProgressBar() {
+        return this.mProgressBar;
+    }
+	//added for cmcc test download ui show progress end 
+	
     public String getFileName() {
         return mFileName;
     }
