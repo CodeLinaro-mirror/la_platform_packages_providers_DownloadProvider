@@ -262,25 +262,7 @@ public class DownloadAdapter extends CursorAdapter {
      * @return boolean true support Phone Storage ,false will be not
      */
     private boolean isPhoneStorageSupported() {
-        Method[] methods = Environment.class.getMethods();
-        Boolean isPhoneStorageSupported = false;
-        for (int idx = 0; idx < methods.length; idx++) {
-            if (methods[idx].getName().equals("isPhoneStorageSupported")) {
-                try {
-                    isPhoneStorageSupported = (Boolean) methods[idx].invoke(Environment.class);
-                } catch (Exception ex) {
-                    Log.e(LOGTAG, "-------- exception------");
-                } finally {
-                    Log.e(LOGTAG, "-------- getMethodList ------" + methods[idx].getName());
-                    if (isPhoneStorageSupported) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                }
-            }
-        }
-        return false;
+       return true;
     }
     
     private String getDownloadPathForUser(Resources resources, String downloadPath) {
@@ -313,7 +295,7 @@ public class DownloadAdapter extends CursorAdapter {
         Method[] methods = Environment.class.getMethods();
         String phoneStorageDirectory = "";
         for (int idx = 0; idx < methods.length; idx++) {
-            if (methods[idx].getName().equals("getPhoneStorageDirectory")) {
+            if (methods[idx].getName().equals("getInternalStorageDirectory")) {
                 try {
                     File phoneFile = (File) methods[idx].invoke(Environment.class);
                     if (phoneFile != null) {
@@ -342,7 +324,7 @@ public class DownloadAdapter extends CursorAdapter {
         Method[] methods = Environment.class.getMethods();
         String phoneStorageState = "";
         for (int idx = 0; idx < methods.length; idx++) {
-            if (methods[idx].getName().equals("getPhoneStorageState")) {
+            if (methods[idx].getName().equals("getInternalStorageState")) {
                 try {
                     phoneStorageState = (String) methods[idx].invoke(Environment.class);
                 } catch (Exception ex) {
