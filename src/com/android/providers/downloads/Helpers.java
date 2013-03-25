@@ -379,7 +379,8 @@ public class Helpers {
         filename = filename.replaceFirst("/+", "/"); // normalize leading slashes
         return filename.startsWith(Environment.getDownloadCacheDirectory().toString())
                 || filename.startsWith(downloadsDataDir.toString())
-                || filename.startsWith(Environment.getExternalStorageDirectory().toString());
+                || filename.startsWith(Environment.getExternalStorageDirectory().toString())
+                ||(StorageManager.isPhoneStorageSupported() && filename.startsWith(StorageManager.getPhoneStorageDirectory()));
     }
 
     /**
