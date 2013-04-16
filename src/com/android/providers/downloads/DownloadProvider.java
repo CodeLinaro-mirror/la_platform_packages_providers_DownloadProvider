@@ -700,7 +700,8 @@ public final class DownloadProvider extends ContentProvider {
         try {
             final String canonicalPath = new File(path).getCanonicalPath();
             final String externalPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-            if (!canonicalPath.startsWith(externalPath)) {
+            final String phoneStoragePath = StorageManager.getPhoneStorageDirectory();
+            if (!canonicalPath.startsWith(externalPath) && !(phoneStoragePath != null && canonicalPath.startsWith(phoneStoragePath))) {
                 throw new SecurityException("Destination must be on external storage: " + uri);
             }
         } catch (IOException e) {

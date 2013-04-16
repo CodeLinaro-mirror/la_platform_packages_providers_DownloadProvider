@@ -26,18 +26,24 @@ import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.text.format.Formatter;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CursorAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.ProgressBar;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+
+import android.os.Environment;
+import java.lang.reflect.Method;
 
 /**
  * List adapter for Cursors returned by {@link DownloadManager}.
@@ -53,12 +59,18 @@ public class DownloadAdapter extends CursorAdapter {
     private final int mDescriptionColumnId;
     private final int mStatusColumnId;
     private final int mReasonColumnId;
+    //added for cmcc test download ui show progress start 
+    private final int mCurrentBytesColumnId;
+    //added for cmcc test download ui show progress end
     private final int mTotalBytesColumnId;
     private final int mMediaTypeColumnId;
     private final int mDateColumnId;
     private final int mIdColumnId;
     private final int mFileNameColumnId;
-
+    //added for cmcc test download ui show download file path start 
+    private int mLocalUriColumnId;
+    private static final String LOGTAG = "DownloadAdapter";
+    //added for cmcc test download ui show download file path end
     public DownloadAdapter(DownloadList downloadList, Cursor cursor) {
         super(downloadList, cursor);
         mDownloadList = downloadList;
@@ -73,11 +85,15 @@ public class DownloadAdapter extends CursorAdapter {
         mStatusColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS);
         mReasonColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON);
         mTotalBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
+        //added for cmcc test download ui show progress start 
+        mCurrentBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
+        //added for cmcc test download ui show progress end 
         mMediaTypeColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIA_TYPE);
         mDateColumnId =
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP);
         mFileNameColumnId =
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_FILENAME);
+        mLocalUriColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI);	//added for cmcc test download ui show download file path
     }
 
     public View newView() {
@@ -104,8 +120,19 @@ public class DownloadAdapter extends CursorAdapter {
         if (title.isEmpty()) {
             title = mResources.getString(R.string.missing_title);
         }
+	     //added for cmcc test download ui show download file path start
+        String saveDownloadPath = mCursor.getString(mLocalUriColumnId);
+        String saveDownloadPathForUser = null;
+        if (saveDownloadPath != null) {
+            String saveDownloadPathTemp = Uri.decode(saveDownloadPath);
+            saveDownloadPathTemp = saveDownloadPathTemp.substring(7);
+            saveDownloadPath = saveDownloadPathTemp.substring(0, saveDownloadPathTemp.lastIndexOf('/') + 1);
+            saveDownloadPathForUser = getDownloadPathForUser(mResources, saveDownloadPath);
+        }
+	     //added for cmcc test download ui show download file path end
         setTextForView(convertView, R.id.download_title, title);
         setTextForView(convertView, R.id.domain, mCursor.getString(mDescriptionColumnId));
+        setTextForView(convertView,R.id.local_uri, saveDownloadPathForUser);//added for cmcc test download ui show download file path 
         setTextForView(convertView, R.id.size_text, getSizeText());
 
         final int status = mCursor.getInt(mStatusColumnId);
@@ -115,6 +142,8 @@ public class DownloadAdapter extends CursorAdapter {
         } else {
             statusText = mResources.getString(getStatusStringId(status));
         }
+        setProgressBar(convertView);//added for cmcc test download ui show progress
+
         setTextForView(convertView, R.id.status_text, statusText);
 
         ((DownloadItem) convertView).getCheckBox()
@@ -201,6 +230,21 @@ public class DownloadAdapter extends CursorAdapter {
         view.setText(text);
     }
 
+    //added for cmcc test download ui show progress start 
+    private void setProgressBar(View parent) {
+        ProgressBar progressbar = ((DownloadItem) parent).getProgressBar();
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
+
+        if (downloadstatus == DownloadManager.STATUS_FAILED
+           || downloadstatus == DownloadManager.STATUS_SUCCESSFUL) {
+            progressbar.setVisibility(View.GONE);
+        } else {
+            progressbar.setVisibility(View.VISIBLE);
+            progressbar.setMax(mCursor.getInt(mTotalBytesColumnId));
+            progressbar.setProgress(mCursor.getInt(mCurrentBytesColumnId));
+        }
+    }
+    //added for cmcc test download ui show progress end
     // CursorAdapter overrides
 
     @Override
@@ -211,5 +255,78 @@ public class DownloadAdapter extends CursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         bindView(view, cursor.getPosition());
+    }
+    
+    /**
+     * if support Phone Storage
+     * 
+     * @return boolean true support Phone Storage ,false will be not
+     */
+    private boolean isPhoneStorageSupported() {
+       return true;
+    }
+    
+    private String getDownloadPathForUser(Resources resources, String downloadPath) {
+        if (downloadPath == null) {
+            return downloadPath;
+        }
+        final String phoneStorageDir;
+        final String sdCardDir = Environment.getExternalStorageDirectory().getPath();;
+        if (isPhoneStorageSupported()) {
+            phoneStorageDir = getPhoneStorageDirectory();
+        } else {
+            phoneStorageDir = null;       
+        } 
+        if (downloadPath.startsWith(sdCardDir)) {
+            String sdCardLabel = resources.getString(R.string.download_path_sd_card_label);
+            downloadPath = downloadPath.replace(sdCardDir, sdCardLabel);
+        } else if ((phoneStorageDir != null) && downloadPath.startsWith(phoneStorageDir)) {
+            String phoneStorageLabel = resources.getString(R.string.download_path_phone_stroage_label);
+            downloadPath = downloadPath.replace(phoneStorageDir, phoneStorageLabel);
+        }
+        return  downloadPath;       
+    }
+
+    /**
+     * get Phone Storage Directory
+     * 
+     * @return String  get Phone Storage Directory
+     */
+    private String getPhoneStorageDirectory() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageDirectory = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getInternalStorageDirectory")) {
+                try {
+                    File phoneFile = (File) methods[idx].invoke(Environment.class);
+                    if (phoneFile != null) {
+                        phoneStorageDirectory = phoneFile.getPath();
+                    }
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "getPhoneStorageDirectory exception");
+                } 
+            }
+        }
+        return phoneStorageDirectory;
+    }
+
+    /**
+     * get Phone Stroage State 
+     * 
+     * @return String true Phone Stroage State 
+     */
+    private String getPhoneStorageState() {
+        Method[] methods = Environment.class.getMethods();
+        String phoneStorageState = "";
+        for (int idx = 0; idx < methods.length; idx++) {
+            if (methods[idx].getName().equals("getInternalStorageState")) {
+                try {
+                    phoneStorageState = (String) methods[idx].invoke(Environment.class);
+                } catch (Exception ex) {
+                    Log.e(LOGTAG, "getPhoneStorageState exception");
+                } 
+            }
+        }
+        return phoneStorageState;
     }
 }
