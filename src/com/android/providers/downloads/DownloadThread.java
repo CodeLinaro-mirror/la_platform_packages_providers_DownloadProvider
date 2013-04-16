@@ -979,7 +979,7 @@ public class DownloadThread extends Thread {
 
         if (state.mContinuingDownload) {
             if (state.mHeaderETag != null) {
-                 request.addHeader("If-Match", state.mHeaderETag);
+                request.addHeader("If-Match", state.mHeaderETag);
             }
             request.addHeader("Range", "bytes=" + state.mCurrentBytes + "-");
             if (Constants.LOGV) {
