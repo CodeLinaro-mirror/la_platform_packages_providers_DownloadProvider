@@ -48,6 +48,11 @@ import java.io.InputStream;
 import java.io.SyncFailedException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import org.apache.http.HttpHost;
+import org.apache.http.params.HttpParams;
+import org.apache.http.conn.params.ConnRouteParams;
+import android.net.Proxy;
+import org.apache.http.params.HttpConnectionParams;
 
 /**
  * Runs an actual download
@@ -186,9 +191,20 @@ public class DownloadThread extends Thread {
                 Log.i(Constants.TAG, "Initiating request for download " + mInfo.mId);
                 // Set or unset proxy, which may have changed since last GET request.
                 // setDefaultProxy() supports null as proxy parameter.
-                ConnRouteParams.setDefaultProxy(client.getParams(),
-                        Proxy.getPreferredHttpHost(mContext, state.mRequestUri));
+                //ConnRouteParams.setDefaultProxy(client.getParams(),
+                //Proxy.getPreferredHttpHost(mContext, state.mRequestUri));
                 HttpGet request = new HttpGet(state.mRequestUri);
+                HttpParams params = client.getParams();
+                if (params != null) {
+                    Log.e("DownloadThread", "----------params != null ---------");
+                    String host = Proxy.getHost(mContext);
+                    if (host != null && host.length() > 0) {
+                        ConnRouteParams.setDefaultProxy(params, new HttpHost(host, Proxy.getPort(mContext)));
+                    }
+                    HttpConnectionParams.setConnectionTimeout(params, 5 * 60 * 1000);
+                    HttpConnectionParams.setSoTimeout(params, 5 * 60 * 1000);
+                    request.setParams(params);
+                }
                 try {
                     executeDownload(state, client, request);
                     finished = true;
