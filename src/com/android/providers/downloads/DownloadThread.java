@@ -62,6 +62,11 @@ public class DownloadThread extends Thread {
 
     private volatile boolean mPolicyDirty;
 
+    // Add for Carrier Feature - Download Breakpoint continuing.
+    // Support continuing download after the download is broken
+    // although HTTP Server doesn't contain etag in its response.
+    private final static String QRD_ETAG = "qrd_magic_etag";
+
     public DownloadThread(Context context, SystemFacade systemFacade, DownloadInfo info,
             StorageManager storageManager) {
         mContext = context;
@@ -664,6 +669,8 @@ public class DownloadThread extends Thread {
         header = response.getFirstHeader("ETag");
         if (header != null) {
             state.mHeaderETag = header.getValue();
+        } else {
+            state.mHeaderETag = QRD_ETAG;
         }
         String headerTransferEncoding = null;
         header = response.getFirstHeader("Transfer-Encoding");
@@ -949,7 +956,9 @@ public class DownloadThread extends Thread {
 
         if (state.mContinuingDownload) {
             if (state.mHeaderETag != null) {
-                request.addHeader("If-Match", state.mHeaderETag);
+                if (!state.mHeaderETag.equals(QRD_ETAG)) {
+                    request.addHeader("If-Match", state.mHeaderETag);
+                }
             }
             request.addHeader("Range", "bytes=" + state.mCurrentBytes + "-");
             if (Constants.LOGV) {
