@@ -165,6 +165,8 @@ public class DownloadAdapter extends CursorAdapter {
                 switch (reason) {
                     case DownloadManager.PAUSED_QUEUED_FOR_WIFI:
                         return R.string.download_queued;
+                    case DownloadManager.PAUSED_WAITING_FOR_NETWORK:
+                        return R.string.download_error;
                     default:
                         return R.string.download_running;
                 }
