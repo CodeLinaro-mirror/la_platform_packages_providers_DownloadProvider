@@ -117,4 +117,14 @@
         [CHAR LIMIT = 20] -->
     <string name="download_share_dialog">Share via</string>
 
+    <!-- Add for Carrier Feature - pause and resume download by manual -->
+
+    <!--Status indicating that the download process is paused -->
+    <string name="download_pause">Paused</string>
+    <!-- Short representation of download progress percentage [CHAR LIMIT=8] -->
+    <string name="download_percent"><xliff:g id="number">%d</xliff:g><xliff:g id="percent">%%</xliff:g></string>
+    <!-- resume or pause dialog related message -->
+    <string name="dialog_title">Download</string>
+    <string name="paused_dialog_msg">Do you want to pause download?</string>
+    <string name="resume_dialog_msg">Do you want to resume download?</string>
 </resources>
