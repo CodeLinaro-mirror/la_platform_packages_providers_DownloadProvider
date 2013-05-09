@@ -44,6 +44,8 @@ import java.util.List;
 
 import android.os.Environment;
 import java.lang.reflect.Method;
+import com.qrd.plugin.feature_query.FeatureQuery;
+
 
 /**
  * List adapter for Cursors returned by {@link DownloadManager}.
@@ -140,7 +142,12 @@ public class DownloadAdapter extends CursorAdapter {
         if (status == DownloadManager.STATUS_SUCCESSFUL) {
             statusText = getDateString();
         } else {
-            statusText = mResources.getString(getStatusStringId(status));
+        	if (FeatureQuery.FEATURE_DOWNLOADPROVIDER_MANUAL_PAUSE) {
+                 statusText = getStatusString(status);
+            } else { 
+                 statusText = mResources.getString(getStatusStringId(status));
+            }
+            //statusText = mResources.getString(getStatusStringId(status));
         }
         setProgressBar(convertView);//added for cmcc test download ui show progress
 
@@ -194,11 +201,39 @@ public class DownloadAdapter extends CursorAdapter {
                 switch (reason) {
                     case DownloadManager.PAUSED_QUEUED_FOR_WIFI:
                         return R.string.download_queued;
+					case DownloadManager.PAUSED_BY_MANUAL:
+                        return R.string.download_pause;
                     default:
                         return R.string.download_running;
                 }
         }
         throw new IllegalStateException("Unknown status: " + mCursor.getInt(mStatusColumnId));
+    }
+
+    private String getStatusString(int status) {
+        String statustext = mResources.getString(getStatusStringId(status));
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
+
+        if (downloadstatus == DownloadManager.STATUS_RUNNING
+            || downloadstatus == DownloadManager.STATUS_PAUSED) {
+           String downloadpercent =  "(" + getDownloadPercentage() + ")";
+           statustext = statustext + downloadpercent;
+        }
+
+        return statustext;
+    }
+
+	
+
+    private String getDownloadPercentage() {
+        long totalBytes = mCursor.getLong(mTotalBytesColumnId);
+        long currentBytes = mCursor.getLong(mCurrentBytesColumnId);
+
+        final int percent = (int) (100 * currentBytes / totalBytes);
+        if (percent < 0) {
+          return mResources.getString(R.string.download_percent, 0);
+        }
+        return mResources.getString(R.string.download_percent, percent);
     }
 
     private void retrieveAndSetIcon(View convertView) {

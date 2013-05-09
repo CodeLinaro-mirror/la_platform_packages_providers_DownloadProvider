@@ -38,6 +38,8 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.qrd.plugin.feature_query.FeatureQuery;
+
 
 /**
  * Receives system broadcasts (boot, network connectivity)
@@ -82,7 +84,9 @@ public class DownloadReceiver extends BroadcastReceiver {
             if (info != null && info.isConnected()) {
                 startService(context);
             }
-        } else if (action.equals(Constants.ACTION_RETRY)) {
+        } else if (action.equals(Constants.ACTION_RETRY)||
+            		(FeatureQuery.FEATURE_DOWNLOADPROVIDER_MANUAL_PAUSE
+                           && action.equals(Constants.ACTION_RESUME))){
             startService(context);
         } else if (action.equals(Constants.ACTION_OPEN)
                 || action.equals(Constants.ACTION_LIST)
