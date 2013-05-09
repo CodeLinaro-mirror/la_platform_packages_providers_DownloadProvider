@@ -65,6 +65,7 @@ public class DownloadThread extends Thread {
     private final SystemFacade mSystemFacade;
     private final StorageManager mStorageManager;
     private DrmConvertSession mDrmConvertSession;
+    private boolean mDownloadAlreadyCompleted;
 
     private volatile boolean mPolicyDirty;
 
@@ -160,6 +161,7 @@ public class DownloadThread extends Thread {
             return;
         }
 
+        mDownloadAlreadyCompleted = false;
         State state = new State(mInfo);
         AndroidHttpClient client = null;
         PowerManager.WakeLock wakeLock = null;
@@ -259,6 +261,7 @@ public class DownloadThread extends Thread {
             }
         }
         mStorageManager.incrementNumDownloadsSoFar();
+        mDownloadAlreadyCompleted = false;
     }
 
     /**
@@ -275,6 +278,7 @@ public class DownloadThread extends Thread {
 
         // skip when already finished; remove after fixing race in 5217390
         if (state.mCurrentBytes == state.mTotalBytes) {
+            mDownloadAlreadyCompleted = true;
             Log.i(Constants.TAG, "Skipping initiating request for download " +
                   mInfo.mId + "; already completed");
             return;
@@ -529,7 +533,7 @@ public class DownloadThread extends Thread {
     private void handleEndOfStream(State state, InnerState innerState) throws StopRequestException {
         ContentValues values = new ContentValues();
         values.put(Downloads.Impl.COLUMN_CURRENT_BYTES, state.mCurrentBytes);
-        if (innerState.mHeaderContentLength == null) {
+        if (innerState.mHeaderContentLength == null || mInfo.mTotalBytes < 0) {
             values.put(Downloads.Impl.COLUMN_TOTAL_BYTES, state.mCurrentBytes);
         }
         mContext.getContentResolver().update(mInfo.getAllDownloadsUri(), values, null, null);
@@ -548,7 +552,9 @@ public class DownloadThread extends Thread {
     }
 
     private boolean cannotResume(State state) {
-        return state.mCurrentBytes > 0 && !mInfo.mNoIntegrity && state.mHeaderETag == null;
+        //return state.mCurrentBytes > 0 && !mInfo.mNoIntegrity && state.mHeaderETag == null;
+        Log.d("TAG", "innerState.mBytesSoFar is: " + state.mCurrentBytes);
+        return state.mCurrentBytes < 0;
     }
 
     /**
@@ -705,7 +711,7 @@ public class DownloadThread extends Thread {
                         "ignoring content-length because of xfer-encoding");
             }
         }
-        if (Constants.LOGVV) {
+        //if (Constants.LOGVV) {
             Log.v(Constants.TAG, "Content-Disposition: " +
                     innerState.mHeaderContentDisposition);
             Log.v(Constants.TAG, "Content-Length: " + innerState.mHeaderContentLength);
@@ -713,7 +719,7 @@ public class DownloadThread extends Thread {
             Log.v(Constants.TAG, "Content-Type: " + state.mMimeType);
             Log.v(Constants.TAG, "ETag: " + state.mHeaderETag);
             Log.v(Constants.TAG, "Transfer-Encoding: " + headerTransferEncoding);
-        }
+        //}
 
         boolean noSizeInfo = innerState.mHeaderContentLength == null
                 && (headerTransferEncoding == null
@@ -907,7 +913,7 @@ public class DownloadThread extends Thread {
                             ", and state.mFilename: " + state.mFilename);
                 }
                 long fileLength = f.length();
-                if (fileLength == 0) {
+                if (fileLength == 0 && (state.mCurrentBytes != state.mTotalBytes)) {
                     // The download hadn't actually started, we can restart from scratch
                     if (Constants.LOGVV) {
                         Log.d(TAG, "setupDestinationFile() found fileLength=0, deleting "
@@ -919,7 +925,8 @@ public class DownloadThread extends Thread {
                         Log.i(Constants.TAG, "resuming download for id: " + mInfo.mId +
                                 ", BUT starting from scratch again: ");
                     }
-                } else if (mInfo.mETag == null && !mInfo.mNoIntegrity) {
+                    /*
+                    } else if (mInfo.mETag == null && !mInfo.mNoIntegrity) {
                     // This should've been caught upon failure
                     if (Constants.LOGVV) {
                         Log.d(TAG, "setupDestinationFile() unable to resume download, deleting "
@@ -928,6 +935,7 @@ public class DownloadThread extends Thread {
                     f.delete();
                     throw new StopRequestException(Downloads.Impl.STATUS_CANNOT_RESUME,
                             "Trying to resume a download that can't be resumed");
+                    */
                 } else {
                     // All right, we'll be able to resume this download
                     if (Constants.LOGV) {
@@ -952,7 +960,13 @@ public class DownloadThread extends Thread {
                                 ", and setting mContinuingDownload to true: ");
                     }
                 }
+            } else {
+                state.mCurrentBytes = 0;
+                ContentValues values = new ContentValues();
+                values.put(Downloads.Impl.COLUMN_CURRENT_BYTES, state.mCurrentBytes);
+                mContext.getContentResolver().update(mInfo.getAllDownloadsUri(), values, null, null);
             }
+            Log.d(Constants.TAG, "state.mCurrentBytes : " + state.mCurrentBytes);
         }
 
         if (state.mStream != null && mInfo.mDestination == Downloads.Impl.DESTINATION_EXTERNAL) {
@@ -990,7 +1004,7 @@ public class DownloadThread extends Thread {
         notifyThroughDatabase(
                 status, countRetry, retryAfter, gotData, filename, uri, mimeType,
                 errorMsg);
-        if (Downloads.Impl.isStatusCompleted(status)) {
+        if (Downloads.Impl.isStatusCompleted(status) && !mDownloadAlreadyCompleted) {
             mInfo.sendIntentIfRequested();
         }
     }
