@@ -53,6 +53,7 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.conn.params.ConnRouteParams;
 import android.net.Proxy;
 import org.apache.http.params.HttpConnectionParams;
+import com.qrd.plugin.feature_query.FeatureQuery;
 
 /**
  * Runs an actual download
@@ -434,6 +435,10 @@ public class DownloadThread extends Thread {
             }
             if (mInfo.mStatus == Downloads.Impl.STATUS_CANCELED) {
                 throw new StopRequestException(Downloads.Impl.STATUS_CANCELED, "download canceled");
+            }
+			if (FeatureQuery.FEATURE_DOWNLOADPROVIDER_MANUAL_PAUSE
+                && mInfo.mStatus == Downloads.Impl.STATUS_PAUSED_BY_MANUAL) {
+                throw new StopRequestException(Downloads.Impl.STATUS_PAUSED_BY_MANUAL, "download paused by manual");
             }
         }
 

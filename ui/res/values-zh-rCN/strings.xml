@@ -28,6 +28,7 @@
     <string name="download_success" msgid="7006048006543495236">"已完成"</string>
     <string name="download_error" msgid="8081329546008568251">"失败"</string>
     <string name="dialog_title_not_available" msgid="5746317632356158515">"无法下载"</string>
+    <string name="download_pause">已暂停</string>
     <string name="dialog_failed_body" msgid="587545111677064427">"您想要稍后重新尝试下载该文件，还是将其从队列中删除？"</string>
     <string name="dialog_title_queued_body" msgid="6760681913815015219">"等待下载的文件"</string>
     <string name="dialog_queued_body" msgid="708552801635572720">"此文件正在等待下载，因此暂时无法使用。"</string>
@@ -47,6 +48,10 @@
     <string name="select_all" msgid="634074918366265804">"全选"</string>
     <string name="selected_count" msgid="2101564570019753277">"已选择 <xliff:g id="NUMBER">%1$d</xliff:g> 个，共 <xliff:g id="TOTAL">%2$d</xliff:g> 个"</string>
     <string name="download_share_dialog" msgid="3355867339806448955">"分享方式"</string>
+    <string name="download_percent" msgid="6029710962459481088">"<xliff:g id="NUMBER">%d</xliff:g><xliff:g id="PERCENT">%%</xliff:g>"</string>
+    <string name="dialog_title">下载</string>
+    <string name="paused_dialog_msg">暂停下载吗？</string>
+    <string name="resume_dialog_msg">恢复下载吗？</string>
     <!-- added for cmcc test download ui show download file path start -->
     <string name="download_path_phone_stroage_label">/内置存储器</string>
     <string name="download_path_sd_card_label">/SD卡</string>

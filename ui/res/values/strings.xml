@@ -48,6 +48,7 @@
     <!-- Status indicating that the download has ended without completing successfully.  Appears for
          an individual item in the download list.  [CHAR LIMIT=11] -->
     <string name="download_error">Unsuccessful</string>
+    <string name="download_pause">Paused</string>
 
     <!-- Dialog/toast messages -->
 
@@ -117,6 +118,10 @@
         [CHAR LIMIT = 20] -->
     <string name="download_share_dialog">Share via</string>
 
+    <string name="download_percent"><xliff:g id="number">%d</xliff:g><xliff:g id="percent">%%</xliff:g></string>
+    <string name="dialog_title">Download</string>
+    <string name="paused_dialog_msg">Do you want to pause download?</string>
+    <string name="resume_dialog_msg">Do you want to resume download?</string>
     <!-- added for cmcc test download ui show download file path start -->
     <string name="download_path_phone_stroage_label">/Phone Stroage</string>
 

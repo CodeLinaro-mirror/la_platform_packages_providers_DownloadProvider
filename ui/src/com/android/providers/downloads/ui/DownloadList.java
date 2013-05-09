@@ -63,12 +63,15 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import com.qrd.plugin.feature_query.FeatureQuery;
 
 /**
  *  View showing a list of all downloads the Download Manager knows about.
  */
 public class DownloadList extends Activity {
     static final String LOG_TAG = "DownloadList";
+	static final int PAUSE_DOWNLOAD = 0;
+    static final int RESUME_DOWNLOAD = 1;
 
     private ExpandableListView mDateOrderedListView;
     private ListView mSizeOrderedListView;
@@ -487,6 +490,22 @@ public class DownloadList extends Activity {
         };
     }
 
+    private DialogInterface.OnClickListener pausedResumeHandler(final long downloadId, final int operationId) {
+        return new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (operationId == PAUSE_DOWNLOAD) {
+                    mDownloadManager.pausedDownload(downloadId);
+                } else {
+                   mDownloadManager.resumeDownload(downloadId);
+                   Intent intent = new Intent("android.intent.action.DOWNLOAD_RESUME");
+                   intent.setClassName("com.android.providers.downloads",
+                                            "com.android.providers.downloads.DownloadReceiver");
+                   sendBroadcast(intent);
+                }
+            }
+        };
+    }
     /**
      * @return an OnClickListener to restart the given downloadId in the Download Manager
      */
@@ -528,8 +547,13 @@ public class DownloadList extends Activity {
         long id = cursor.getInt(mIdColumnId);
         switch (cursor.getInt(mStatusColumnId)) {
             case DownloadManager.STATUS_PENDING:
+				break;
             case DownloadManager.STATUS_RUNNING:
+				if (FeatureQuery.FEATURE_DOWNLOADPROVIDER_MANUAL_PAUSE) {
+                    showPausedResumeDialog(id, PAUSE_DOWNLOAD);
+                } else {
                 sendRunningDownloadClickedBroadcast(id);
+                }
                 break;
 
             case DownloadManager.STATUS_PAUSED:
@@ -551,6 +575,10 @@ public class DownloadList extends Activity {
                                 }
                             })
                             .show();
+                }else if (FeatureQuery.FEATURE_DOWNLOADPROVIDER_MANUAL_PAUSE
+                                && isPausedByManual(cursor)) {
+                    //if paused by manual, show show resume dialog
+                    showPausedResumeDialog(id, RESUME_DOWNLOAD);
                 } else {
                     sendRunningDownloadClickedBroadcast(id);
                 }
@@ -625,6 +653,20 @@ public class DownloadList extends Activity {
                 .show();
     }
 
+    private void showPausedResumeDialog(long downloadId, int operationId) {
+        int bodyMsgId = 0;
+        if (operationId == PAUSE_DOWNLOAD) {
+            bodyMsgId = R.string.paused_dialog_msg;
+        } else if (operationId == RESUME_DOWNLOAD) {
+            bodyMsgId = R.string.resume_dialog_msg;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_title)
+                .setMessage(bodyMsgId)
+                .setPositiveButton(android.R.string.yes, pausedResumeHandler(downloadId, operationId))
+                .setNegativeButton(android.R.string.no, null)
+               .show();
+    }
     private void sendRunningDownloadClickedBroadcast(long id) {
         final Intent intent = new Intent(Constants.ACTION_LIST);
         intent.setPackage(Constants.PROVIDER_PACKAGE_NAME);
@@ -682,6 +724,12 @@ public class DownloadList extends Activity {
 
     private boolean isPausedForWifi(Cursor cursor) {
         return cursor.getInt(mReasonColumndId) == DownloadManager.PAUSED_QUEUED_FOR_WIFI;
+    }
+    private boolean isPausedByManual(Cursor cursor) {
+        if (cursor != null) {
+            return cursor.getInt(mReasonColumndId) == DownloadManager.PAUSED_BY_MANUAL;
+        }
+        return false;
     }
 
     /**
