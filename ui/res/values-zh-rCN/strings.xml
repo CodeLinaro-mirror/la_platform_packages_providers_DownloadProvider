@@ -47,4 +47,11 @@
     <string name="select_all" msgid="634074918366265804">"全选"</string>
     <string name="selected_count" msgid="2101564570019753277">"已选择 <xliff:g id="NUMBER">%1$d</xliff:g> 个，共 <xliff:g id="TOTAL">%2$d</xliff:g> 个"</string>
     <string name="download_share_dialog" msgid="3355867339806448955">"分享方式"</string>
+
+    <!-- Add for Carrier Feature - pause and resume download by manual -->
+    <string name="download_pause">已暂停</string>
+    <string name="download_percent" msgid="6029710962459481088">"<xliff:g id="NUMBER">%d</xliff:g><xliff:g id="PERCENT">%%</xliff:g>"</string>
+    <string name="dialog_title">下载</string>
+    <string name="paused_dialog_msg">暂停下载吗？</string>
+    <string name="resume_dialog_msg">恢复下载吗？</string>
 </resources>

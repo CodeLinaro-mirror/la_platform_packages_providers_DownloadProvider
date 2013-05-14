@@ -424,6 +424,11 @@ public class DownloadThread extends Thread {
             if (mInfo.mStatus == Downloads.Impl.STATUS_CANCELED) {
                 throw new StopRequestException(Downloads.Impl.STATUS_CANCELED, "download canceled");
             }
+            // Add for Carrier Feature - pause and resume download by manual.
+            if (mInfo.mStatus == Downloads.Impl.STATUS_PAUSED_BY_MANUAL) {
+                // user pauses the download by manual, here send exception and stop the request.
+                throw new StopRequestException(Downloads.Impl.STATUS_PAUSED_BY_MANUAL, "download paused by manual");
+            }
         }
 
         // if policy has been changed, trigger connectivity check
