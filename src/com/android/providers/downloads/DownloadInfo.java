@@ -41,6 +41,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
+
 /**
  * Stores information about an individual download.
  */
@@ -332,6 +334,17 @@ public class DownloadInfo {
         if (mVisibility == Downloads.Impl.VISIBILITY_VISIBLE_NOTIFY_COMPLETED) {
             return true;
         }
+        /*when save attachment of email and click extension listview item about 
+        *this attachment, the warning icon is not disapear.
+        *bacause the variable keepService is always false, the DownloadService 
+        *will stop,when save email's attachment completely,the notification icon will 
+        *not be refresh.so we add fallow code to make sure the  variable keepService 
+        *is true, when save  email's attachment.
+        */
+        if (mVisibility == VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION) {
+            return true;
+        }
+		
         return false;
     }
 
