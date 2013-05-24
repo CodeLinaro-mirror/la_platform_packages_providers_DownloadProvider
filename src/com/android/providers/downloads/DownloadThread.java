@@ -204,8 +204,8 @@ public class DownloadThread extends Thread {
                     if (host != null && host.length() > 0) {
                         ConnRouteParams.setDefaultProxy(params, new HttpHost(host, Proxy.getPort(mContext)));
                     }
-                    HttpConnectionParams.setConnectionTimeout(params, 5 * 60 * 1000);
-                    HttpConnectionParams.setSoTimeout(params, 5 * 60 * 1000);
+//                  HttpConnectionParams.setConnectionTimeout(params, 5 * 60 * 1000);
+//                  HttpConnectionParams.setSoTimeout(params, 5 * 60 * 1000);
                     request.setParams(params);
                 }
                 try {
