@@ -224,6 +224,20 @@ public class DownloadAdapter extends CursorAdapter {
         if (percent < 0) {
           return mResources.getString(R.string.download_percent, 0);
         }
+        //bufix:when download a file, unmount the SD Card, a while time,
+        //then, mount the SD Card, the download will be going on, but the 
+        //pecentage of the download will be more than 100%, so we modified
+        //fallowing code to sovle this problem. If only download successfally,
+        //set the pecentage 100%, it will stop in 98% to wait for download 
+        //successfal statues.
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
+        if (downloadstatus == DownloadManager.STATUS_SUCCESSFUL) {
+            return mResources.getString(R.string.download_percent, 100);
+        } else {
+            if (percent > 98) {
+                return mResources.getString(R.string.download_percent, 98);
+            }
+        }
         return mResources.getString(R.string.download_percent, percent);
     }
 
