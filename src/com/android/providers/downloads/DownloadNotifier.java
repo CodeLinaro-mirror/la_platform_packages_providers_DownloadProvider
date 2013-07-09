@@ -177,7 +177,7 @@ public class DownloadNotifier {
                 }
 
                 if (total > 0) {
-                    final int percent = (int) ((current * 100) / total);
+                    final int percent = getPercentage(current, total);
                     percentText = res.getString(R.string.download_percent, percent);
 
                     if (speed > 0) {
@@ -261,6 +261,23 @@ public class DownloadNotifier {
             }
         }
     }
+
+    //bufix:when download a file, unmount the SD Card, a while time,
+    //then, mount the SD Card, the download will be going on, but the 
+    //pecentage of the download will be more than 100%, so we modified
+    //fallowing code to sovle this problem. If only download successfally,
+    //set the pecentage 100%, it will stop in 98% to wait for download 
+    //successfal statues.
+    private int getPercentage(long currentBytes, long totalBytes) {
+        int percent = (int) (100 * currentBytes / totalBytes);
+        if (percent < 0) {
+            percent = 0;
+        } else if (percent > 98) {
+            percent = 98;
+        }
+        return percent;
+    }
+
 
     private static CharSequence getDownloadTitle(Resources res, DownloadInfo info) {
         if (!TextUtils.isEmpty(info.mTitle)) {
