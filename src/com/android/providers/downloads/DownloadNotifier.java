@@ -150,9 +150,23 @@ public class DownloadNotifier {
             }
             builder.setWhen(firstShown);
 
+            // Check error status about downloads. If error exists, will
+            // update icon and content title/content text in notification.
+            boolean hasErrorStatus = false;
+            for (DownloadInfo info : cluster) {
+                if (isErrorStatus(info.mStatus)) {
+                    hasErrorStatus = true;
+                    break;
+                }
+            }
+
             // Show relevant icon
             if (type == TYPE_ACTIVE) {
-                builder.setSmallIcon(android.R.drawable.stat_sys_download);
+                if (hasErrorStatus) {
+                    builder.setSmallIcon(android.R.drawable.stat_sys_warning);
+                } else {
+                    builder.setSmallIcon(android.R.drawable.stat_sys_download);
+                }
             } else if (type == TYPE_WAITING) {
                 builder.setSmallIcon(android.R.drawable.stat_sys_warning);
             } else if (type == TYPE_COMPLETE) {
@@ -240,7 +254,9 @@ public class DownloadNotifier {
                 builder.setContentTitle(getDownloadTitle(res, info));
 
                 if (type == TYPE_ACTIVE) {
-                    if (!TextUtils.isEmpty(info.mDescription)) {
+                    if (hasErrorStatus) {
+                        builder.setContentText(res.getText(R.string.notification_download_failed));
+                    } else if (!TextUtils.isEmpty(info.mDescription)) {
                         builder.setContentText(info.mDescription);
                     } else {
                         builder.setContentText(remainingText);
@@ -270,8 +286,12 @@ public class DownloadNotifier {
                 }
 
                 if (type == TYPE_ACTIVE) {
-                    builder.setContentTitle(res.getQuantityString(
-                            R.plurals.notif_summary_active, cluster.size(), cluster.size()));
+                    if (hasErrorStatus) {
+                        builder.setContentTitle(res.getString(R.string.notification_download_failed));
+                    } else {
+                        builder.setContentTitle(res.getQuantityString(
+                                R.plurals.notif_summary_active, cluster.size(), cluster.size()));
+                    }
                     builder.setContentText(remainingText);
                     builder.setContentInfo(percentText);
                     inboxStyle.setSummaryText(remainingText);
@@ -356,7 +376,7 @@ public class DownloadNotifier {
     }
 
     private static boolean isActiveAndVisible(DownloadInfo download) {
-        return download.mStatus == STATUS_RUNNING &&
+        return Downloads.Impl.isStatusInformational(download.mStatus) &&
                 (download.mVisibility == VISIBILITY_VISIBLE
                 || download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
     }
@@ -365,5 +385,15 @@ public class DownloadNotifier {
         return Downloads.Impl.isStatusCompleted(download.mStatus) &&
                 (download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                 || download.mVisibility == VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
+    }
+
+    private boolean isErrorStatus(int status) {
+        boolean isErrorStatus = Downloads.Impl.isStatusError(status)
+                             || Downloads.Impl.isStatusClientError(status)
+                             || Downloads.Impl.isStatusServerError(status)
+                             || status == Downloads.Impl.STATUS_INSUFFICIENT_SPACE_ERROR
+                             || status == Downloads.Impl.STATUS_DEVICE_NOT_FOUND_ERROR
+                             || status == Downloads.Impl.STATUS_WAITING_FOR_NETWORK;
+        return isErrorStatus;
     }
 }
