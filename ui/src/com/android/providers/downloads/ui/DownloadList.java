@@ -70,6 +70,10 @@ import java.util.Set;
 public class DownloadList extends Activity {
     static final String LOG_TAG = "DownloadList";
 
+    // Add for Carrier Feature - pause and resume download by manual.
+    static final int PAUSE_DOWNLOAD = 0;
+    static final int RESUME_DOWNLOAD = 1;
+
     private ExpandableListView mDateOrderedListView;
     private ListView mSizeOrderedListView;
     private View mEmptyView;
@@ -487,6 +491,30 @@ public class DownloadList extends Activity {
         };
     }
 
+     /**
+     * Add for Carrier Feature - pause and resume download by manual.
+     * @return an OnClickListener to pause or resume the given downloadId from the Download Manager
+     */
+    private DialogInterface.OnClickListener pauseResumeHandler(final long downloadId, final int operationId) {
+        return new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (operationId == PAUSE_DOWNLOAD) {
+                    mDownloadManager.pauseDownload(downloadId);
+                } else {
+                    mDownloadManager.resumeDownload(downloadId);
+                    // resumeDownload() in download manager only sets download status to
+                    // running and then sends broadcast to start the service
+                   Intent intent = new Intent("android.intent.action.DOWNLOAD_RESUME");
+                   intent.setClassName("com.android.providers.downloads",
+                           "com.android.providers.downloads.DownloadReceiver");
+                   sendBroadcast(intent);
+                }
+            }
+        };
+    }
+
+
     /**
      * @return an OnClickListener to restart the given downloadId in the Download Manager
      */
@@ -528,9 +556,13 @@ public class DownloadList extends Activity {
         long id = cursor.getInt(mIdColumnId);
         switch (cursor.getInt(mStatusColumnId)) {
             case DownloadManager.STATUS_PENDING:
-            case DownloadManager.STATUS_RUNNING:
                 sendRunningDownloadClickedBroadcast(id);
                 break;
+
+            case DownloadManager.STATUS_RUNNING:
+                showPauseResumeDialog(id, PAUSE_DOWNLOAD);
+                break;
+
 
             case DownloadManager.STATUS_PAUSED:
                 if (isPausedForWifi(cursor)) {
@@ -551,6 +583,9 @@ public class DownloadList extends Activity {
                                 }
                             })
                             .show();
+                } else if (isPausedByManual(cursor)) {
+                    // if paused by manual, show resume dialog
+                    showPauseResumeDialog(id, RESUME_DOWNLOAD);
                 } else {
                     sendRunningDownloadClickedBroadcast(id);
                 }
@@ -625,6 +660,23 @@ public class DownloadList extends Activity {
                 .show();
     }
 
+    private void showPauseResumeDialog(long downloadId, int operationId) {
+        int bodyMsgId = 0;
+
+        if (operationId == PAUSE_DOWNLOAD) {
+            bodyMsgId = R.string.paused_dialog_msg;
+        } else if (operationId == RESUME_DOWNLOAD) {
+            bodyMsgId = R.string.resume_dialog_msg;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_title)
+                .setMessage(bodyMsgId)
+                .setPositiveButton(android.R.string.yes, pauseResumeHandler(downloadId, operationId))
+                .setNegativeButton(android.R.string.no, null)
+                .show();
+    }
+
+
     private void sendRunningDownloadClickedBroadcast(long id) {
         final Intent intent = new Intent(Constants.ACTION_LIST);
         intent.setPackage(Constants.PROVIDER_PACKAGE_NAME);
@@ -683,6 +735,14 @@ public class DownloadList extends Activity {
     private boolean isPausedForWifi(Cursor cursor) {
         return cursor.getInt(mReasonColumndId) == DownloadManager.PAUSED_QUEUED_FOR_WIFI;
     }
+
+    private boolean isPausedByManual(Cursor cursor) {
+        if (cursor != null) {
+            return cursor.getInt(mReasonColumndId) == DownloadManager.PAUSED_BY_MANUAL;
+        }
+        return false;
+    }
+
 
     /**
      * Check if any of the selected downloads have been deleted from the downloads database, and
