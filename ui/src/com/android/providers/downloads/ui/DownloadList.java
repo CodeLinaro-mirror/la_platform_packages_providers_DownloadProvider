@@ -34,6 +34,7 @@ import android.os.Handler;
 import android.os.Parcelable;
 import android.provider.BaseColumns;
 import android.provider.Downloads;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.ActionMode;
@@ -54,6 +55,7 @@ import android.widget.Toast;
 import com.android.providers.downloads.Constants;
 import com.android.providers.downloads.OpenHelper;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -788,10 +790,12 @@ public class DownloadList extends Activity {
             ArrayList<Parcelable> attachments = new ArrayList<Parcelable>();
             ArrayList<String> mimeTypes = new ArrayList<String>();
             for (Map.Entry<Long, SelectionObjAttrs> item : mSelectedIds.entrySet()) {
-                final Uri uri = ContentUris.withAppendedId(
-                        Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
+                String fileName = item.getValue().getFileName();
+                if (TextUtils.isEmpty(fileName)) {
+                    return false;
+                }
                 final String mimeType = item.getValue().getMimeType();
-                attachments.add(uri);
+                attachments.add(Uri.fromFile(new File(fileName)));
                 if (mimeType != null) {
                     mimeTypes.add(mimeType);
                 }
@@ -802,11 +806,13 @@ public class DownloadList extends Activity {
             // get the entry
             // since there is ONLY one entry in this, we can do the following
             for (Map.Entry<Long, SelectionObjAttrs> item : mSelectedIds.entrySet()) {
-                final Uri uri = ContentUris.withAppendedId(
-                        Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
+                String fileName = item.getValue().getFileName();
+                if (TextUtils.isEmpty(fileName)) {
+                    return false;
+                }
                 final String mimeType = item.getValue().getMimeType();
                 intent.setAction(Intent.ACTION_SEND);
-                intent.putExtra(Intent.EXTRA_STREAM, uri);
+                intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(new File(fileName)));
                 intent.setType(mimeType);
             }
         }
