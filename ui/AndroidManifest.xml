@@ -15,6 +15,7 @@
 
         <activity android:name=".DownloadList"
                   android:launchMode="singleTop"
+                  android:configChanges="orientation|screenSize"
                   android:theme="@android:style/Theme.Holo.DialogWhenLarge">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
