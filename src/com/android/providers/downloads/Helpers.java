@@ -361,11 +361,13 @@ public class Helpers {
     /**
      * Checks whether the filename looks legitimate
      */
-    static boolean isFilenameValid(String filename, File downloadsDataDir) {
+    static boolean isFilenameValid(Context context, String filename, File downloadsDataDir) {
         filename = filename.replaceFirst("/+", "/"); // normalize leading slashes
         return filename.startsWith(Environment.getDownloadCacheDirectory().toString())
                 || filename.startsWith(downloadsDataDir.toString())
-                || filename.startsWith(Environment.getExternalStorageDirectory().toString());
+                || filename.startsWith(Environment.getExternalStorageDirectory().toString())
+                || (StorageManager.isPhoneStorageSupported() && filename.startsWith(StorageManager
+                        .getExternalStorageDirectory(context)));
     }
 
     /**
