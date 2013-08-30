@@ -31,6 +31,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CursorAdapter;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.text.DateFormat;
@@ -53,6 +54,7 @@ public class DownloadAdapter extends CursorAdapter {
     private final int mDescriptionColumnId;
     private final int mStatusColumnId;
     private final int mReasonColumnId;
+    private final int mCurrentBytesColumnId;
     private final int mTotalBytesColumnId;
     private final int mMediaTypeColumnId;
     private final int mDateColumnId;
@@ -73,6 +75,7 @@ public class DownloadAdapter extends CursorAdapter {
         mStatusColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS);
         mReasonColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON);
         mTotalBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
+        mCurrentBytesColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
         mMediaTypeColumnId = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIA_TYPE);
         mDateColumnId =
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP);
@@ -113,8 +116,9 @@ public class DownloadAdapter extends CursorAdapter {
         if (status == DownloadManager.STATUS_SUCCESSFUL) {
             statusText = getDateString();
         } else {
-            statusText = mResources.getString(getStatusStringId(status));
+            statusText = getStatusString(status);
         }
+        setProgressBar(convertView);
         setTextForView(convertView, R.id.status_text, statusText);
 
         ((DownloadItem) convertView).getCheckBox()
@@ -165,12 +169,44 @@ public class DownloadAdapter extends CursorAdapter {
                 switch (reason) {
                     case DownloadManager.PAUSED_QUEUED_FOR_WIFI:
                         return R.string.download_queued;
+                    case DownloadManager.PAUSED_WAITING_FOR_NETWORK:
+                        return R.string.download_error;
+                    case DownloadManager.PAUSED_BY_MANUAL:
+                        return R.string.download_pause;
                     default:
                         return R.string.download_running;
                 }
         }
         throw new IllegalStateException("Unknown status: " + mCursor.getInt(mStatusColumnId));
     }
+
+    private String getStatusString(int status) {
+        String statustext = mResources.getString(getStatusStringId(status));
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
+        long totalBytes = mCursor.getLong(mTotalBytesColumnId);
+
+        // If download request can't return "Content-Length"(as download a
+        // link), download total byte is -1, so we can't get correct download
+        // percentage.
+        if ((downloadstatus == DownloadManager.STATUS_RUNNING ||
+                 downloadstatus == DownloadManager.STATUS_PAUSED) &&
+                     totalBytes > 0) {
+            String downloadpercent =  "(" + getDownloadPercentage() + ")";
+            statustext = statustext + downloadpercent;
+        }
+
+        return statustext;
+    }
+
+    private String getDownloadPercentage() {
+        long totalBytes = mCursor.getLong(mTotalBytesColumnId);
+        long currentBytes = mCursor.getLong(mCurrentBytesColumnId);
+
+        final int percent = (int) (100 * currentBytes / totalBytes);
+
+        return mResources.getString(R.string.download_percent, percent);
+    }
+
 
     private void retrieveAndSetIcon(View convertView) {
         String mediaType = mCursor.getString(mMediaTypeColumnId);
@@ -199,6 +235,21 @@ public class DownloadAdapter extends CursorAdapter {
     private void setTextForView(View parent, int textViewId, CharSequence text) {
         TextView view = (TextView) parent.findViewById(textViewId);
         view.setText(text);
+    }
+
+    private void setProgressBar(View parent) {
+        ProgressBar progressbar = ((DownloadItem) parent).getProgressBar();
+        int downloadstatus = mCursor.getInt(mStatusColumnId);
+
+        if (downloadstatus == DownloadManager.STATUS_FAILED ||
+                downloadstatus == DownloadManager.STATUS_SUCCESSFUL) {
+            // download completed or failed, invisible progressbar
+            progressbar.setVisibility(View.GONE);
+        } else {
+            progressbar.setVisibility(View.VISIBLE);
+            progressbar.setMax(mCursor.getInt(mTotalBytesColumnId));
+            progressbar.setProgress(mCursor.getInt(mCurrentBytesColumnId));
+        }
     }
 
     // CursorAdapter overrides
