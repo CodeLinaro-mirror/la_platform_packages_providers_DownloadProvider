@@ -64,6 +64,22 @@ public class Helpers {
         return null;
     }
 
+    // Add for carrier feature - download to related folders by mimetype.
+    private static String chooseFolderFromMimeType(String path, String mimeType) {
+        String destinationFolder = null;
+        if (!path.contains(Constants.DEFAULT_DL_SUBDIR) || null == mimeType)
+            return path;
+        if (mimeType.startsWith("audio"))
+            destinationFolder = Environment.DIRECTORY_MUSIC;
+        else if (mimeType.startsWith("video"))
+            destinationFolder = Environment.DIRECTORY_MOVIES;
+        else if (mimeType.startsWith("image"))
+            destinationFolder = Environment.DIRECTORY_PICTURES;
+        if (null != destinationFolder)
+            path = path.replace(Constants.DEFAULT_DL_SUBDIR, "/" + destinationFolder);
+        return path;
+    }
+
     /**
      * Creates a filename (where the file should be saved) from info about a download.
      */
@@ -90,6 +106,10 @@ public class Helpers {
             path = chooseFilename(url, hint, contentDisposition, contentLocation,
                                              destination);
         }
+
+        // Add for carrier feature - download to related folders by mimetype.
+        path = chooseFolderFromMimeType(path, mimeType);
+
         storageManager.verifySpace(destination, path, contentLength);
         if (DownloadDrmHelper.isDrmConvertNeeded(mimeType)) {
             path = DownloadDrmHelper.modifyDrmFwLockFileExtension(path);
@@ -341,11 +361,13 @@ public class Helpers {
     /**
      * Checks whether the filename looks legitimate
      */
-    static boolean isFilenameValid(String filename, File downloadsDataDir) {
+    static boolean isFilenameValid(Context context, String filename, File downloadsDataDir) {
         filename = filename.replaceFirst("/+", "/"); // normalize leading slashes
         return filename.startsWith(Environment.getDownloadCacheDirectory().toString())
                 || filename.startsWith(downloadsDataDir.toString())
-                || filename.startsWith(Environment.getExternalStorageDirectory().toString());
+                || filename.startsWith(Environment.getExternalStorageDirectory().toString())
+                || (StorageManager.isPhoneStorageSupported() && filename.startsWith(StorageManager
+                        .getExternalStorageDirectory(context)));
     }
 
     /**
