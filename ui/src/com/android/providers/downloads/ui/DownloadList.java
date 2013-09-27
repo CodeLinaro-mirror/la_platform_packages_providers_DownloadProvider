@@ -545,8 +545,14 @@ public class DownloadList extends Activity {
             // close() failed, not a problem
         }
 
-        final long id = cursor.getLong(cursor.getColumnIndexOrThrow(BaseColumns._ID));
-        final Intent intent = OpenHelper.buildViewIntent(this, id);
+        final Uri viewUri;
+        final String mimeType = cursor.getString(mMediaTypeColumnId);
+        viewUri = localUri;
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(viewUri, mimeType);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION
+            | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         try {
             startActivity(intent);
         } catch (ActivityNotFoundException ex) {
