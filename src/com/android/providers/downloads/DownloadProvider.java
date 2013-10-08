@@ -707,16 +707,12 @@ public final class DownloadProvider extends ContentProvider {
         if (path == null) {
             throw new IllegalArgumentException("Invalid file URI: " + uri);
         }
-        try {
-            final String canonicalPath = new File(path).getCanonicalPath();
-            final String externalPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-            final String phoneStoragePath = StorageManager.getExternalStorageDirectory(getContext());
-            if (!canonicalPath.startsWith(externalPath)
-                    && !(phoneStoragePath != null && canonicalPath.startsWith(phoneStoragePath))) {
-                throw new SecurityException("Destination must be on external storage: " + uri);
-            }
-        } catch (IOException e) {
-            throw new SecurityException("Problem resolving path: " + uri);
+
+        final String externalPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        final String phoneStoragePath = StorageManager.getExternalStorageDirectory(getContext());
+        if (!path.startsWith(externalPath)
+                && !(phoneStoragePath != null && path.startsWith(phoneStoragePath))) {
+            throw new SecurityException("Destination must be on external storage: " + uri);
         }
     }
 
