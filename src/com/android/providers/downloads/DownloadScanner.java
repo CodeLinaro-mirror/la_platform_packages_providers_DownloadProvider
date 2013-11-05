@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +37,7 @@ import com.android.internal.annotations.GuardedBy;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
+import java.io.File;// DRM Change
 
 /**
  * Manages asynchronous scanning of completed downloads.
@@ -101,7 +104,20 @@ public class DownloadScanner implements MediaScannerConnectionClient {
     public void requestScan(DownloadInfo info) {
         if (LOGV) Log.v(TAG, "requestScan() for " + info.mFileName);
         synchronized (mConnection) {
-            final ScanRequest req = new ScanRequest(info.mId, info.mFileName, info.mMimeType);
+            //Drm Start
+            String mimeType = null;
+            if (info.mFileName != null && info.mFileName.endsWith(".dcf")) {
+                //Context context = getApplicationContext();
+                File file = new File(info.mFileName);
+                mimeType = DownloadDrmHelper.getOriginalMimeType(mContext, file, mimeType);
+            } else {
+                mimeType= info.mMimeType;
+            }
+            Log.d(Constants.TAG, "drm:requestScanFile:info.mFileName= " + info.mFileName
+                    + " mimeType= " + mimeType);
+            final ScanRequest req = new ScanRequest(info.mId, info.mFileName, mimeType);
+            //Drm End
+
             mPending.put(req.path, req);
 
             if (mConnection.isConnected()) {
@@ -127,6 +143,7 @@ public class DownloadScanner implements MediaScannerConnectionClient {
 
     @Override
     public void onScanCompleted(String path, Uri uri) {
+        Log.d(Constants.TAG, "drm:onScanCompleted:uri=" + uri + " path= " + path);// DRM Change
         final ScanRequest req;
         synchronized (mConnection) {
             req = mPending.remove(path);

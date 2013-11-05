@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -497,15 +499,30 @@ public class DownloadThread implements Runnable {
      * Called just before the thread finishes, regardless of status, to take any necessary action on
      * the downloaded file.
      */
-    private void cleanupDestination(State state, int finalStatus) {
+    private int cleanupDestination(State state, int finalStatus) {
         if (state.mFilename != null && Downloads.Impl.isStatusError(finalStatus)) {
             if (Constants.LOGVV) {
                 Log.d(TAG, "cleanupDestination() deleting " + state.mFilename);
             }
             new File(state.mFilename).delete();
             state.mFilename = null;
+            // DRM Change -- START
+            state.mCurrentBytes = 0;
+            reportProgress(state);
+            // DRM Change -- END
         }
+        return finalStatus; // DRM Change
     }
+
+    // Drm changes: start
+    //DRM support
+    /**
+     * @return true if the current download is a DRM file
+     */
+    private boolean isDrmFile(State state) {
+        return DownloadDrmHelper.isDrmMimeType(mContext, state.mMimeType);
+    }
+    // Drm changes: end
 
     /**
      * Check if the download has been paused or canceled, stopping the request appropriately if it
@@ -710,6 +727,17 @@ public class DownloadThread implements Runnable {
 
         if (state.mMimeType == null) {
             state.mMimeType = Intent.normalizeMimeType(conn.getContentType());
+            // Drm changes start
+            if ((state.mMimeType == null) && (mInfo.mUri != null)) {
+                if (mInfo.mUri.endsWith(".dm")) {
+                    state.mMimeType = "application/vnd.oma.drm.message";
+                } else if (mInfo.mUri.endsWith(".dcf")) {
+                    state.mMimeType = "application/vnd.oma.drm.content";
+                } else if (mInfo.mUri.endsWith(".dd")) {
+                    state.mMimeType = "application/vnd.oma.dd+xml";
+                }
+            }
+            // Drm changes end
         }
 
         state.mHeaderETag = conn.getHeaderField("ETag");
@@ -853,7 +881,23 @@ public class DownloadThread implements Runnable {
             State state, int finalStatus, String errorMsg, int numFailed) {
         notifyThroughDatabase(state, finalStatus, errorMsg, numFailed);
         if (Downloads.Impl.isStatusCompleted(finalStatus)) {
-            mInfo.sendIntentIfRequested();
+            // Drm Chg -- START 
+            if (Helpers.isDrmDownload(state.mMimeType)) {
+                //Log.i("DownloadMnanager", "FILENAME===" + state.mFilename + " uri= " + uri);
+                // if the mime is drm rights call save rights.
+                if (Helpers.isDrmRightsFile(state.mMimeType)) {
+                    File f = new File(state.mFilename);
+                    if (f.exists() && (f.length() > 0)) {
+                        Log.d(TAG, "saveRights with mimeType="+state.mMimeType);
+                        DownloadDrmHelper.saveRights(mContext, state.mFilename, state.mMimeType);
+                        f.delete();
+                    }
+                }
+                return;
+            // Drm Chg -- END
+            } else {
+                mInfo.sendIntentIfRequested();
+            }
         }
     }
 
@@ -862,7 +906,16 @@ public class DownloadThread implements Runnable {
         ContentValues values = new ContentValues();
         values.put(Downloads.Impl.COLUMN_STATUS, finalStatus);
         values.put(Downloads.Impl._DATA, state.mFilename);
-        values.put(Downloads.Impl.COLUMN_MIME_TYPE, state.mMimeType);
+        // Drm Changes START
+        File f = new File(state.mFilename);
+        String mimeTypeAfterDownload = state.mMimeType;
+        if (DownloadDrmHelper.isDrmMimeType(mContext, mimeTypeAfterDownload)) {
+            mimeTypeAfterDownload = DownloadDrmHelper.getOriginalMimeType(mContext, f,
+                    state.mMimeType);
+        }
+        // Drm Changes END
+
+        values.put(Downloads.Impl.COLUMN_MIME_TYPE, mimeTypeAfterDownload);
         values.put(Downloads.Impl.COLUMN_LAST_MODIFICATION, mSystemFacade.currentTimeMillis());
         values.put(Downloads.Impl.COLUMN_FAILED_CONNECTIONS, numFailed);
         values.put(Constants.RETRY_AFTER_X_REDIRECT_COUNT, state.mRetryAfter);

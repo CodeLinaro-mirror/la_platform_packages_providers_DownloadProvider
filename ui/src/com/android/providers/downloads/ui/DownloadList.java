@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +67,14 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-
+// DRM Changes --START
+import android.drm.DrmManagerClient;
+import android.drm.DrmRights;
+import android.drm.DrmStore.Action;
+import android.drm.DrmStore.RightsStatus;
+import android.drm.DrmStore.DrmDeliveryType;
+import android.content.ContentValues;
+// DRM Changes --END
 /**
  *  View showing a list of all downloads the Download Manager knows about.
  */
@@ -545,6 +554,39 @@ public class DownloadList extends Activity {
             // close() failed, not a problem
         }
 
+        //Drm Start
+        if (localUri.toString().endsWith(".dcf")) {
+            String mimetype = cursor.getString(mMediaTypeColumnId);
+            String filename = localUri.getPath();
+            DrmManagerClient drmClient = new DrmManagerClient(DownloadList.this);
+            int status = -1;
+            if (mimetype.startsWith("video/") || mimetype.startsWith("audio/")) {
+                status = drmClient.checkRightsStatus(filename, Action.PLAY);
+            } else if (mimetype.startsWith("image/")) {
+                status = drmClient.checkRightsStatus(filename, Action.DISPLAY);
+            }
+            Log.d(LOG_TAG, "openCurrentDownload:status from drmClient.checkRightsStatus is "
+                    + Integer.toString(status));
+
+            ContentValues values = drmClient.getMetadata(filename);
+
+            if (RightsStatus.RIGHTS_VALID != status) {
+                String address = values.getAsString("Rights-Issuer");
+                Intent intent = new Intent("android.drmservice.intent.action.BUY_LICENSE");
+                intent.putExtra("DRM_FILE_PATH", address);
+                sendBroadcast(intent);
+                return;
+            }
+
+            int drmType = values.getAsInteger("DRM-TYPE");
+            Log.d(LOG_TAG, "DRM-TYPE = " + Integer.toString(drmType));
+            if (drmType > DrmDeliveryType.FORWARD_LOCK) { //Not FL
+                Toast.makeText(DownloadList.this, R.string.action_consumes_rights,
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+        //Drm End
+
         final Uri viewUri;
         final String mimeType = cursor.getString(mMediaTypeColumnId);
         viewUri = localUri;
@@ -786,11 +828,33 @@ public class DownloadList extends Activity {
         return false;
     }
 
+    // DRM Start
+  /*
+   * to check whether given drm file is forwardlocked or not
+   */
+    private boolean isDrmForwardable(String filepath) {
+        boolean isForwardable = false;
+        Log.d(LOG_TAG, "isDrmForwardable:filepath = " + filepath);
+        DrmManagerClient drmClient = new DrmManagerClient(this);
+        ContentValues values = drmClient.getMetadata(filepath);
+        int drmType = values.getAsInteger("DRM-TYPE");
+        Log.d(LOG_TAG,"DRM-TYPE = " + Integer.toString(drmType));
+        if (drmType == DrmDeliveryType.SEPARATE_DELIVERY) { //SEPARATE_DELIVERY =3;
+            isForwardable = true;
+        }
+        return isForwardable;
+    }
+    // DRM End
+
     /**
      * handle share menu button click when one more files are selected for sharing
      */
     public boolean shareDownloadedFiles() {
         Intent intent = new Intent();
+        // DRM Star
+        boolean sendIntent  = false;
+        boolean showDrmToast = false;
+        // DRM End
         if (mSelectedIds.size() > 1) {
             intent.setAction(Intent.ACTION_SEND_MULTIPLE);
             ArrayList<Parcelable> attachments = new ArrayList<Parcelable>();
@@ -800,12 +864,34 @@ public class DownloadList extends Activity {
                 if (TextUtils.isEmpty(fileName)) {
                     return false;
                 }
-                final String mimeType = item.getValue().getMimeType();
-                attachments.add(Uri.fromFile(new File(fileName)));
-                if (mimeType != null) {
-                    mimeTypes.add(mimeType);
+
+                // DRM Star
+                // Caused by if we use the content uri to share, it will meet the permission
+                // problem, so we changed to use file uri to avoid this problem.
+                Log.d(LOG_TAG, "fileName= " + fileName);
+                final Uri uri = ContentUris.withAppendedId(
+                        Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
+                if (fileName != null
+                        && (!fileName.endsWith(".dcf")
+                                || (fileName.endsWith(".dcf") && isDrmForwardable(fileName)))) {
+                    final String mimeType = item.getValue().getMimeType();
+                    attachments.add(uri);
+                    if (mimeType != null) {
+                        mimeTypes.add(mimeType);
+                    }
+                } else if (fileName != null) {
+                    // One if the selected file is forward-protected drm file
+                    // and show toast after for loop
+                    showDrmToast = true;
                 }
+                // DRM End
             }
+            // DRM Star
+            if (showDrmToast) {
+                Toast.makeText(DownloadList.this,
+                         R.string.drm_cannot_share_multiple,Toast.LENGTH_LONG).show();
+            }
+            // DRM End
             intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, attachments);
             intent.setType(findCommonMimeType(mimeTypes));
         } else {
@@ -816,14 +902,35 @@ public class DownloadList extends Activity {
                 if (TextUtils.isEmpty(fileName)) {
                     return false;
                 }
-                final String mimeType = item.getValue().getMimeType();
-                intent.setAction(Intent.ACTION_SEND);
-                intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(new File(fileName)));
-                intent.setType(mimeType);
+                // DRM Star
+                if (fileName != null
+                        && (!fileName.endsWith(".dcf")
+                                || (fileName.endsWith(".dcf") && isDrmForwardable(fileName)))) {
+                    final Uri uri = ContentUris.withAppendedId(
+                            Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
+                    final String mimeType = item.getValue().getMimeType();
+                    intent.setAction(Intent.ACTION_SEND);
+                    intent.putExtra(Intent.EXTRA_STREAM, uri);
+                    intent.setType(mimeType);
+                    sendIntent = true;
+                } else if (fileName != null) {
+                    // One if the selected file is forward-protected drm file
+                    // and show toast after for loop
+                    showDrmToast = true;
+                }
+                // DRM End
             }
+            // DRM Star
+            if (showDrmToast) {
+                Toast.makeText(DownloadList.this, R.string.drm_cannot_share,Toast.LENGTH_LONG)
+                        .show();
+            }
+            // DRM End
         }
         intent = Intent.createChooser(intent, getText(R.string.download_share_dialog));
-        startActivity(intent);
+        // DRM Star
+        if (sendIntent) startActivity(intent);
+        // DRM End
         return true;
     }
 

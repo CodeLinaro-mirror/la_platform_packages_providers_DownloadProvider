@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +21,9 @@ package com.android.providers.downloads;
 
 import android.content.Context;
 import android.drm.DrmManagerClient;
-
+import android.drm.DrmRights;
+import android.util.Log;
+import java.io.IOException;
 import java.io.File;
 
 public class DownloadDrmHelper {
@@ -31,6 +35,35 @@ public class DownloadDrmHelper {
     public static final String EXTENSION_DRM_MESSAGE = ".dm";
 
     public static final String EXTENSION_INTERNAL_FWDL = ".fl";
+    // DRM Changes --START
+    public static final String EXTENSION_INTERNAL_DRM = ".dcf";
+
+    /**
+     * Checks if the Media Type is a DRM Media Type
+     *
+     * @param drmManagerClient A DrmManagerClient
+     * @param mimetype Media Type to check
+     * @return True if the Media Type is DRM else false
+     */
+    public static boolean isDrmMimeType(Context context, String mimetype) {
+        boolean result = false;
+        if (context != null) {
+            try {
+                DrmManagerClient drmClient = new DrmManagerClient(context);
+                if (drmClient != null && mimetype != null && mimetype.length() > 0) {
+                    result = drmClient.canHandle("", mimetype);
+                    drmClient.release();
+                }
+            } catch (IllegalArgumentException e) {
+                Log.w(Constants.TAG,
+                        "DrmManagerClient instance could not be created, context is Illegal.");
+            } catch (IllegalStateException e) {
+                Log.w(Constants.TAG, "DrmManagerClient didn't initialize properly.");
+            }
+        }
+        return result;
+    }
+    // DRM Changes --END
 
     /**
      * Checks if the Media Type needs to be DRM converted
@@ -53,7 +86,7 @@ public class DownloadDrmHelper {
             if (extensionIndex != -1) {
                 filename = filename.substring(0, extensionIndex);
             }
-            filename = filename.concat(EXTENSION_INTERNAL_FWDL);
+            filename = filename.concat(EXTENSION_INTERNAL_FWDL);// Drm change
         }
         return filename;
     }
@@ -75,4 +108,24 @@ public class DownloadDrmHelper {
             client.release();
         }
     }
+
+    // Drm changes start
+    /**
+     * installs the rights.
+     *
+     * @param context The context
+     * @param path Path to the file
+     * @param mimeType mimeType
+     */
+    public static void saveRights(Context context, String path, String mimeType) {
+        DrmRights drmRights = new DrmRights(path, mimeType);
+        DrmManagerClient drmClient = new DrmManagerClient(context);
+        try {
+            drmClient.saveRights(drmRights, path, null);
+            drmClient.release();
+        } catch (IOException ex) {
+            Log.i("DownloadMnanager", "--Exception==" + ex.toString());
+        }
+    }
+    // Drm changes end
 }

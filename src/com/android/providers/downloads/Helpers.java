@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +37,12 @@ import java.util.regex.Pattern;
  * Some helper functions for the download manager
  */
 public class Helpers {
+    // Drm START
+    public static final String MIMETYPE_DRM_MESSAGE = "application/vnd.oma.drm.message";
+    public static final String MIMETYPE_DRM_CONTENT = "application/vnd.oma.drm.content";
+    public static final String DRM_MIMETYPE_RIGHTS_XML = "application/vnd.oma.drm.rights+xml";
+    public static final String DRM_MIMETYPE_RIGHTS_WXML = "application/vnd.oma.drm.rights+wbxml";
+    // Drm END
     public static Random sRandom = new Random(SystemClock.uptimeMillis());
 
     /** Regex used to parse content-disposition headers */
@@ -660,4 +668,30 @@ public class Helpers {
         }
         return sb.toString();
     }
+
+    // Drm START
+    public static boolean isDrmDownload(String mimeType) {
+        if (mimeType == null) return false;
+
+        String type = mimeType.toLowerCase();
+        if (type.equals( MIMETYPE_DRM_MESSAGE)
+                || type.equals(MIMETYPE_DRM_CONTENT)
+                || type.equals(DRM_MIMETYPE_RIGHTS_XML)
+                || type.equals(DRM_MIMETYPE_RIGHTS_WXML)) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isDrmRightsFile(String mimeType) {
+        if (mimeType == null) return false;
+
+        String type = mimeType.toLowerCase();
+        if (type.equals(DRM_MIMETYPE_RIGHTS_XML)
+                || type.equals(DRM_MIMETYPE_RIGHTS_WXML)) {
+            return true;
+        }
+        return false;
+    }
+    // Drm END
 }

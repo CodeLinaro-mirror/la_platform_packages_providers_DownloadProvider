@@ -213,4 +213,6 @@
          [CHAR LIMIT=200] -->
     <string name="download_no_application_title">Can\'t open file</string>
 
+    <!-- Drm Add  -->
+    <string name="action_consumes_rights">Rights will be consumed for playing  this media</string>
 </resources>
