@@ -18,4 +18,8 @@
     <style name="Theme.Translucent" parent="android:style/Theme.Translucent">
         <item name="android:windowNoTitle">true</item>
     </style>
+
+    <style name="SelectStorageActivityTheme" parent="@android:style/Theme.Holo.Light.Dialog.NoActionBar.MinWidth">
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
 </resources>

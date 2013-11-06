@@ -213,6 +213,12 @@
          [CHAR LIMIT=200] -->
     <string name="download_no_application_title">Can\'t open file</string>
 
+    <string name="select_storage_title">Please select a storage to install <xliff:g id="download_title">%s</xliff:g></string>
+    <string name="auto">Auto</string>
+    <string name="internal_storage">Internal Storage</string>
+    <string name="external_storage">External Storage</string>
+
     <!-- Drm Add  -->
     <string name="action_consumes_rights">Rights will be consumed for playing  this media</string>
+
 </resources>

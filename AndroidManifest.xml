@@ -94,5 +94,10 @@
         <activity android:name=".SizeLimitActivity"
                   android:launchMode="singleTask"
                   android:theme="@style/Theme.Translucent"/>
+
+        <activity android:name="SelectStorageActivity"
+                  android:exported="false"
+                  android:theme="@style/SelectStorageActivityTheme"
+                  android:taskAffinity="com.android.vending" />
     </application>
 </manifest>

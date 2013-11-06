@@ -45,6 +45,7 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import com.android.internal.content.PackageHelper;
 import com.android.internal.util.IndentingPrintWriter;
 import com.google.android.collect.Maps;
 import com.google.common.annotations.VisibleForTesting;
@@ -66,10 +67,12 @@ import java.util.Map;
  * Allows application to interact with the download manager.
  */
 public final class DownloadProvider extends ContentProvider {
+    private static final String TAG = "DownloadProvider";
+
     /** Database filename */
     private static final String DB_NAME = "downloads.db";
     /** Current database version */
-    private static final int DB_VERSION = 108;
+    private static final int DB_VERSION = 109;
     /** Name of table in the database */
     private static final String DB_TABLE = "downloads";
 
@@ -317,6 +320,12 @@ public final class DownloadProvider extends ContentProvider {
                 case 108:
                     addColumn(db, DB_TABLE, Downloads.Impl.COLUMN_ALLOW_METERED,
                             "INTEGER NOT NULL DEFAULT 1");
+                    break;
+
+                case 109:
+                    addColumn(db, DB_TABLE, Downloads.Impl.COLUMN_STORAGE_SELECTED,
+                            "INTEGER NOT NULL DEFAULT " + PackageHelper.APP_INSTALL_AUTO);
+                    Log.d(TAG, "Added column storage_selected to table downloads");
                     break;
 
                 default:
