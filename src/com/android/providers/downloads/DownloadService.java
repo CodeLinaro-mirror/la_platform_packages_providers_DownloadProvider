@@ -24,6 +24,7 @@ import android.app.DownloadManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -40,6 +41,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.content.PackageHelper;
 import com.android.internal.util.IndentingPrintWriter;
 import com.google.android.collect.Maps;
 import com.google.common.annotations.VisibleForTesting;
@@ -69,6 +71,8 @@ import java.util.concurrent.TimeUnit;
  * delivered through {@link Context#startService(Intent)}.
  */
 public class DownloadService extends Service {
+    private static final String TAG = "DownloadService";
+
     // TODO: migrate WakeLock from individual DownloadThreads out into
     // DownloadReceiver to protect our entire workflow.
 
@@ -180,8 +184,55 @@ public class DownloadService extends Service {
             Log.v(Constants.TAG, "Service onStart");
         }
         mLastStartId = startId;
+
+        checkIntentStorageSelected(intent);
+
         enqueueUpdate();
         return returnValue;
+    }
+
+    private void checkIntentStorageSelected(Intent intent) {
+        if (intent != null) {
+            String action = intent.getStringExtra("action");
+            if (Constants.LOGVV) Log.d(TAG, "received action = " + (action == null ? "null" : action));
+            if (action != null && "storage_selected_for_play_store".equals(action)) {
+                long id = intent.getLongExtra("id", -1);
+                int storage = intent.getIntExtra("selected_storage", -1);
+                if (Constants.LOGVV) Log.d(TAG, "storage selected, id = " + id + ", storage = " + storage);
+
+                synchronized (mDownloads) {
+                    DownloadInfo info = mDownloads.remove(id);
+                    if (Constants.LOGVV) Log.d(TAG, "storage selected, info.mDestination = "
+                            + (info == null ? "null" : info.mDestination));
+
+                    if (info != null) {
+                        if (storage == PackageHelper.APP_INSTALL_INTERNAL
+                                || storage == PackageHelper.APP_INSTALL_EXTERNAL) {
+
+                            if (storage == PackageHelper.APP_INSTALL_INTERNAL) {
+                                info.mDestination = Downloads.Impl.DESTINATION_CACHE_PARTITION_PURGEABLE;
+                            } else if (storage == PackageHelper.APP_INSTALL_EXTERNAL) {
+                                info.mDestination = Downloads.Impl.DESTINATION_EXTERNAL;
+                            }
+
+                            ContentValues values = new ContentValues();
+                            values.put(Downloads.Impl.COLUMN_DESTINATION, info.mDestination);
+                            values.put(Downloads.Impl.COLUMN_STORAGE_SELECTED, storage);
+
+                            int row = getContentResolver().update(
+                                    Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
+                                    values,
+                                    Downloads.Impl._ID + "=?",
+                                    new String[] {String.valueOf(id)});
+                            if (Constants.LOGVV) Log.d(TAG, "storage selected, update row(s) = " + row);
+                        }
+
+                        info.mSelectStorageState = DownloadInfo.SelectStorageState.STORAGE_SELECTED_OR_UNNEEDED;
+                        mDownloads.put(id, info);
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -309,12 +360,15 @@ public class DownloadService extends Service {
                 staleIds.remove(id);
 
                 DownloadInfo info = mDownloads.get(id);
+                if (Constants.LOGVV) Log.d(TAG, "updateLocked, info is " + (info == null ? "null" : "not null"));
                 if (info != null) {
                     updateDownload(reader, info, now);
                 } else {
                     info = insertDownloadLocked(reader, now);
                 }
 
+                if (Constants.LOGVV) Log.d(TAG, "updateLocked, info.mSelectStorageState = " + info.mSelectStorageState
+                        + ", info.mDeleted = " + info.mDeleted + ", info.mDestination = " + info.mDestination);
                 if (info.mDeleted) {
                     // Delete download if requested, but only after cleaning up
                     if (!TextUtils.isEmpty(info.mMediaProviderUri)) {
@@ -323,9 +377,9 @@ public class DownloadService extends Service {
 
                     deleteFileIfExists(info.mFileName);
                     resolver.delete(info.getAllDownloadsUri(), null, null);
-                    staleIds.add(info.mId);
 
-                } else {
+                } else if (info.mSelectStorageState ==
+                        DownloadInfo.SelectStorageState.STORAGE_SELECTED_OR_UNNEEDED) {
                     // Kick off download task if ready
                     final boolean activeDownload = info.startDownloadIfReady(mExecutor);
 
@@ -339,6 +393,19 @@ public class DownloadService extends Service {
 
                     isActive |= activeDownload;
                     isActive |= activeScan;
+
+                } else if (info.mSelectStorageState ==
+                        DownloadInfo.SelectStorageState.NEED_SELECT_STORAGE) {
+                    showSelectStorageDialog(info);
+                    info.mSelectStorageState =
+                            DownloadInfo.SelectStorageState.SELECT_STORAGE_DIALOG_SHOWED;
+                    isActive = true;  // because mStorageSelectedState is not stored in database, the service
+                                      // must keep running to avoid it lost.
+
+                } else if (info.mSelectStorageState ==
+                        DownloadInfo.SelectStorageState.SELECT_STORAGE_DIALOG_SHOWED) {
+                    isActive = true;  // because mStorageSelectedState is not stored in database, the service
+                                      // must keep running to avoid it lost.
                 }
 
                 // Keep track of nearest next action
@@ -370,6 +437,17 @@ public class DownloadService extends Service {
         }
 
         return isActive;
+    }
+
+    private void showSelectStorageDialog(DownloadInfo info) {
+        if (Constants.LOGVV) Log.d(TAG, "showSelectStorageDialog, id = " + info.mId);
+        Intent intent = new Intent(this, SelectStorageActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra("id", info.mId);
+        if (info.mTitle != null) {
+            intent.putExtra("download_title", info.mTitle);
+        }
+        startActivity(intent);
     }
 
     /**

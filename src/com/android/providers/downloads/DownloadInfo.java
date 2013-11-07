@@ -22,15 +22,20 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.SystemProperties;
 import android.provider.Downloads;
 import android.provider.Downloads.Impl;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 
 import com.android.internal.annotations.GuardedBy;
@@ -39,7 +44,9 @@ import com.android.internal.util.IndentingPrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -48,6 +55,8 @@ import java.util.concurrent.Future;
  * Stores information about an individual download.
  */
 public class DownloadInfo {
+    private static final String TAG = "DownloadInfo";
+
     // TODO: move towards these in-memory objects being sources of truth, and
     // periodically pushing to provider.
 
@@ -66,6 +75,13 @@ public class DownloadInfo {
                     context, systemFacade, storageManager, notifier);
             updateFromDatabase(info);
             readRequestHeaders(info);
+
+            if (needUserSelectStorage(info)) {
+                info.mSelectStorageState = SelectStorageState.NEED_SELECT_STORAGE;
+            }
+            Log.d(TAG, "newDownloadInfo, info.mSelectStorageState = " + info.mSelectStorageState);
+            info.debugPrint();
+
             return info;
         }
 
@@ -198,6 +214,23 @@ public class DownloadInfo {
         BLOCKED;
     }
 
+    public enum SelectStorageState {
+        /**
+         * Need user to select the storage.
+         */
+        NEED_SELECT_STORAGE,
+
+        /**
+         * The storage selection dialog has been shown to user.
+         */
+        SELECT_STORAGE_DIALOG_SHOWED,
+
+        /**
+         * User has selected the storage. Or no need to select the storage.
+         */
+        STORAGE_SELECTED_OR_UNNEEDED;
+    }
+
     /**
      * For intents used to notify the user that a download exceeds a size threshold, if this extra
      * is true, WiFi is required for this download size; otherwise, it is only recommended.
@@ -211,6 +244,18 @@ public class DownloadInfo {
     public String mFileName;
     public String mMimeType;
     public int mDestination;
+
+    /**
+     * 0 NEED_SELECT_STORAGE - Need to show a dialog for user to select a storage
+     * 1 SELECT_STORAGE_DIALOG_SHOWED - The dialog has been shown to the user
+     * 2 STORAGE_SELECTED_OR_UNNEEDED - User has selected an option or don't need to show the dialog.
+     *     If not from the Play Store, it doesn't need to show the dialog for selecting storage.
+     *
+     * Default is 2 STORAGE_SELECTED_OR_UNNEEDED, assume it isn't from the Play Store,
+     * don't need user to select.
+     */
+    public SelectStorageState mSelectStorageState = SelectStorageState.STORAGE_SELECTED_OR_UNNEEDED;
+
     public int mVisibility;
     public int mControl;
     public int mStatus;
@@ -607,6 +652,171 @@ public class DownloadInfo {
             }
         } finally {
             cursor.close();
+        }
+    }
+
+    private static boolean needUserSelectStorage(DownloadInfo info) {
+        Log.d(TAG, "needUserSelectStorage, info.mPackage = " + (info.mPackage == null ? "null" : info.mPackage)
+                + ", info.mClass = " + (info.mClass == null ? "null" : info.mClass)
+                + ", info.mUri = " + (info.mUri == null ? "null" : info.mUri)
+                + ", info.mTitle = " + (info.mTitle == null ? "null" : info.mTitle)
+                + ", info.mSelectStorageState = " + info.mSelectStorageState);
+
+        if ("Xolo".equals(SystemProperties.get("persist.env.spec"))
+                && info.mPackage != null && "com.android.vending".equals(info.mPackage)) {
+            if (info.mClass != null
+                    && "com.google.android.finsky.download.DownloadBroadcastReceiver".equals(info.mClass)) {
+                if (info.mUri != null
+                        && !info.mUri.contains("packageName=com.android.vending")
+                        && checkPackageInstalled(info.mContext, info.mUri)) {
+                    //if (info.mTitle != null && !info.mTitle.isEmpty()) {
+                        // If it runs here, I think it is a package which comes from the Play Store
+                        // and it needs to be installed. So the user needs to select the storage.
+                        Log.d(TAG, "needUserSelectStorage, return true");
+                        return true;
+                    //}
+                }
+            }
+        }
+        Log.d(TAG, "needUserSelectStorage, return false");
+        return false;
+    }
+
+    private static boolean checkPackageInstalled(Context context, String strUri) {
+        try {
+            Uri uri = Uri.parse(strUri);
+            String packageName = uri.getQueryParameter("packageName");
+            Log.d(TAG, "packageName is " + (packageName == null ? "null" : packageName));
+            if (packageName == null) {
+                // return false to avoid showing the storage selection dialog under some kind of
+                // wrong circumstances.
+                return false;
+            }
+
+            PackageInfo packageInfo = null;
+            try {
+                packageInfo = context.getPackageManager().getPackageInfo(packageName, 0);
+            } catch (NameNotFoundException e) {
+                Log.d(TAG, "package name not found.");
+            }
+            Log.d(TAG, "packageInfo is " + (packageInfo == null ? "null" : "not null"));
+            return packageInfo == null;
+
+        } catch (NullPointerException e) {
+            Log.d(TAG, "NullPointerException in isPackageInstalled: " + e);
+            return false;
+        } catch (UnsupportedOperationException e) {
+            Log.d(TAG, "UnsupportedOperationException in isPackageInstalled: " + e);
+            return false;
+        }
+    }
+
+    /**
+     * TODO should delete this function before final release.
+     * The import of Set and Iterator class may need to be deleted.
+     */
+    private void debugPrint() {
+        // print DownloadInfo.
+        StringBuilder sb = new StringBuilder();
+        sb.append("Id = ").append(mId)
+        .append("\n Uri = ").append(mUri)
+        .append("\n NoIntegrity = ").append(mNoIntegrity)
+        .append("\n Hint = ").append(mHint)
+        .append("\n FileName = ").append(mFileName)
+        .append("\n MimeType = ").append(mMimeType)
+        .append("\n Destination = ").append(mDestination)
+        .append("\n SelectStorageState = ").append(mSelectStorageState)
+        .append("\n Visibility = ").append(mVisibility)
+        .append("\n Control = ").append(mControl)
+        .append("\n Status = ").append(mStatus)
+        .append("\n NumFailed = ").append(mNumFailed)
+        .append("\n RetryAfter = ").append(mRetryAfter)
+        .append("\n LastMod = ").append(mLastMod)
+        .append("\n Package = ").append(mPackage)
+        .append("\n Class = ").append(mClass)
+        .append("\n Extras = ").append(mExtras)
+        .append("\n Cookies = ").append(mCookies)
+        .append("\n UserAgent = ").append(mUserAgent)
+        .append("\n Referer = ").append(mReferer)
+        .append("\n TotalBytes = ").append(mTotalBytes)
+        .append("\n CurrentBytes = ").append(mCurrentBytes)
+        .append("\n ETag = ").append(mETag)
+        .append("\n Uid = ").append(mUid)
+        .append("\n MediaScanned = ").append(mMediaScanned)
+        .append("\n Deleted = ").append(mDeleted)
+        .append("\n MediaProviderUri = ").append(mMediaProviderUri)
+        .append("\n IsPublicApi = ").append(mIsPublicApi)
+        .append("\n AllowedNetworkTypes = ").append(mAllowedNetworkTypes)
+        .append("\n AllowRoaming = ").append(mAllowRoaming)
+        .append("\n AllowMetered = ").append(mAllowMetered)
+        .append("\n Title = ").append(mTitle)
+        .append("\n Description = ").append(mDescription)
+        .append("\n BypassRecommendedSizeLimit = ").append(mBypassRecommendedSizeLimit)
+        .append("\n Fuzz = ").append(mFuzz);
+
+        sb.append("\n RequestHeaders = ");
+        for (int i = 0; i < mRequestHeaders.size(); i++) {
+            sb.append("[")
+            .append(mRequestHeaders.get(i).first)
+            .append(", ")
+            .append(mRequestHeaders.get(i).second)
+            .append("] ");
+        }
+
+        Log.d(TAG, "print DownloadInfo start ");
+        Log.d(TAG, sb.toString());
+        Log.d(TAG, "print DownloadInfo end");
+
+        // print mUri
+        sb = new StringBuilder();
+        try {
+            Uri uri = Uri.parse(mUri);
+            Set<String> queryNames = uri.getQueryParameterNames();
+            Iterator<String> it = queryNames.iterator();
+            while (it.hasNext()) {
+                String name = it.next();
+                List<String> values = uri.getQueryParameters(name);
+                sb.append(name);
+                sb.append(" = ");
+                for (int i = 0; i < values.size(); i++) {
+                    sb.append(values.get(i));
+                    if (i < values.size() - 1) {
+                        sb.append(", ");
+                    }
+                }
+                if (it.hasNext()) {
+                    sb.append("\n");
+                }
+            }
+        } catch (NullPointerException e) {
+            if (sb.length() > 0) {
+                sb.append("\n");
+            }
+            sb.append("NullPointerException occurred");
+        }
+        Log.d(TAG, "print mUri start");
+        Log.d(TAG, sb.toString());
+        Log.d(TAG, "print mUri end");
+
+        // print installed packages
+        sb = new StringBuilder();
+        List<PackageInfo> packageInfo = mContext.getPackageManager().getInstalledPackages(0);
+        for (int i = 0; i < packageInfo.size(); i++) {
+            sb.append(packageInfo.get(i).packageName);
+            if (i < packageInfo.size() - 1) {
+                sb.append("\n");
+            }
+        }
+        Log.d(TAG, "print installed packages start");
+        Log.d(TAG, sb.toString());
+        Log.d(TAG, "print installed packages end");
+
+        // print taskAffinity of com.android.vending
+        try {
+            ApplicationInfo appInfo = mContext.getPackageManager().getApplicationInfo("com.android.vending", 0);
+            Log.d(TAG, "appInfo.taskAffinity = " + (appInfo == null ? "null" : appInfo.taskAffinity));
+        } catch (NameNotFoundException e) {
+            Log.d(TAG, "ApplicationInfo not found");
         }
     }
 }
