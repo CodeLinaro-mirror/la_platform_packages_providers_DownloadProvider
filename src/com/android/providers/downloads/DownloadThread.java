@@ -906,16 +906,7 @@ public class DownloadThread implements Runnable {
         ContentValues values = new ContentValues();
         values.put(Downloads.Impl.COLUMN_STATUS, finalStatus);
         values.put(Downloads.Impl._DATA, state.mFilename);
-        // Drm Changes START
-        File f = new File(state.mFilename);
-        String mimeTypeAfterDownload = state.mMimeType;
-        if (DownloadDrmHelper.isDrmMimeType(mContext, mimeTypeAfterDownload)) {
-            mimeTypeAfterDownload = DownloadDrmHelper.getOriginalMimeType(mContext, f,
-                    state.mMimeType);
-        }
-        // Drm Changes END
-
-        values.put(Downloads.Impl.COLUMN_MIME_TYPE, mimeTypeAfterDownload);
+        //values.put(Downloads.Impl.COLUMN_MIME_TYPE, mimeTypeAfterDownload);// Drm change
         values.put(Downloads.Impl.COLUMN_LAST_MODIFICATION, mSystemFacade.currentTimeMillis());
         values.put(Downloads.Impl.COLUMN_FAILED_CONNECTIONS, numFailed);
         values.put(Constants.RETRY_AFTER_X_REDIRECT_COUNT, state.mRetryAfter);

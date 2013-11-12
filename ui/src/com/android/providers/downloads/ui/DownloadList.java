@@ -543,6 +543,7 @@ public class DownloadList extends Activity {
      */
     private void openCurrentDownload(Cursor cursor) {
         final Uri localUri = Uri.parse(cursor.getString(mLocalUriColumnId));
+        String mimeType = cursor.getString(mMediaTypeColumnId);// Drm change
         try {
             getContentResolver().openFileDescriptor(localUri, "r").close();
         } catch (FileNotFoundException exc) {
@@ -554,15 +555,17 @@ public class DownloadList extends Activity {
             // close() failed, not a problem
         }
 
-        //Drm Start
-        if (localUri.toString().endsWith(".dcf")) {
-            String mimetype = cursor.getString(mMediaTypeColumnId);
+        // Drm Start
+        if (localUri != null
+                && (localUri.toString().endsWith(".dcf")
+                        || localUri.toString().endsWith(".dm"))) {
             String filename = localUri.getPath();
             DrmManagerClient drmClient = new DrmManagerClient(DownloadList.this);
+            mimeType = drmClient.getOriginalMimeType(filename);
             int status = -1;
-            if (mimetype.startsWith("video/") || mimetype.startsWith("audio/")) {
+            if (mimeType.startsWith("video/") || mimeType.startsWith("audio/")) {
                 status = drmClient.checkRightsStatus(filename, Action.PLAY);
-            } else if (mimetype.startsWith("image/")) {
+            } else if (mimeType.startsWith("image/")) {
                 status = drmClient.checkRightsStatus(filename, Action.DISPLAY);
             }
             Log.d(LOG_TAG, "openCurrentDownload:status from drmClient.checkRightsStatus is "
@@ -588,7 +591,7 @@ public class DownloadList extends Activity {
         //Drm End
 
         final Uri viewUri;
-        final String mimeType = cursor.getString(mMediaTypeColumnId);
+        //final String mimeType = cursor.getString(mMediaTypeColumnId);// Drm change
         viewUri = localUri;
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
