@@ -100,9 +100,13 @@ public class Helpers {
         }
 
         storageManager.verifySpace(destination, path, contentLength);
+        // Drm changes start
+        /*
         if (DownloadDrmHelper.isDrmConvertNeeded(mimeType)) {
             path = DownloadDrmHelper.modifyDrmFwLockFileExtension(path);
         }
+        */
+        // Drm changes end
         path = getFullPath(path, mimeType, destination, base);
         return path;
     }

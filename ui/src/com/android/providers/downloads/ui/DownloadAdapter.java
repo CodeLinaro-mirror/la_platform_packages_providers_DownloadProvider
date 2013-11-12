@@ -23,6 +23,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.drm.DrmManagerClient;// Drm change
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.text.format.Formatter;
@@ -216,6 +217,15 @@ public class DownloadAdapter extends CursorAdapter {
         if (mediaType == null) {
             return;
         }
+
+        // DRM Changes Start
+        String filename = mCursor.getString(mFileNameColumnId);
+        if (filename != null
+                && (filename.endsWith(".dcf") || filename.endsWith(".dm"))) {
+            DrmManagerClient drmClient = new DrmManagerClient(mContext);
+            mediaType = drmClient.getOriginalMimeType(filename);
+        }
+        // DRM Changes End
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(Uri.fromParts("file", "", null), mediaType);

@@ -106,7 +106,9 @@ public class DownloadScanner implements MediaScannerConnectionClient {
         synchronized (mConnection) {
             //Drm Start
             String mimeType = null;
-            if (info.mFileName != null && info.mFileName.endsWith(".dcf")) {
+            if (info.mFileName != null
+                    && (info.mFileName.endsWith(".dcf")
+                            || info.mFileName.endsWith(".dm"))) {
                 //Context context = getApplicationContext();
                 File file = new File(info.mFileName);
                 mimeType = DownloadDrmHelper.getOriginalMimeType(mContext, file, mimeType);
