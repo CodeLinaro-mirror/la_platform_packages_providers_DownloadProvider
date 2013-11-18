@@ -86,7 +86,7 @@ public class DownloadDrmHelper {
             if (extensionIndex != -1) {
                 filename = filename.substring(0, extensionIndex);
             }
-            filename = filename.concat(EXTENSION_INTERNAL_FWDL);// Drm change
+            filename = filename.concat(EXTENSION_INTERNAL_DRM);// Drm change
         }
         return filename;
     }

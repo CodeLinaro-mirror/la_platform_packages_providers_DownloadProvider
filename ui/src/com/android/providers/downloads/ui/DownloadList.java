@@ -876,7 +876,7 @@ public class DownloadList extends Activity {
                         Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
                 if (fileName != null
                         && (!fileName.endsWith(".dcf")
-                                || (fileName.endsWith(".dcf") && isDrmForwardable(fileName)))) {
+                                || (fileName.endsWith(".dm") && isDrmForwardable(fileName)))) {
                     final String mimeType = item.getValue().getMimeType();
                     attachments.add(uri);
                     if (mimeType != null) {
@@ -908,7 +908,7 @@ public class DownloadList extends Activity {
                 // DRM Star
                 if (fileName != null
                         && (!fileName.endsWith(".dcf")
-                                || (fileName.endsWith(".dcf") && isDrmForwardable(fileName)))) {
+                                || (fileName.endsWith(".dm") && isDrmForwardable(fileName)))) {
                     final Uri uri = ContentUris.withAppendedId(
                             Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, item.getKey());
                     final String mimeType = item.getValue().getMimeType();
