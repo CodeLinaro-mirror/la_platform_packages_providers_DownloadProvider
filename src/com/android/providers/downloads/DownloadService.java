@@ -377,6 +377,7 @@ public class DownloadService extends Service {
 
                     deleteFileIfExists(info.mFileName);
                     resolver.delete(info.getAllDownloadsUri(), null, null);
+                    staleIds.add(info.mId);
 
                 } else if (info.mSelectStorageState ==
                         DownloadInfo.SelectStorageState.STORAGE_SELECTED_OR_UNNEEDED) {
