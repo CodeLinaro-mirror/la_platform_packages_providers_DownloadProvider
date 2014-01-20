@@ -130,6 +130,14 @@
         application, a content marketplace. -->
     <string name="notification_download_failed">Download unsuccessful.</string>
 
+    <!-- When a download is paused, a notification is displayed, and this
+        string is used to indicate that waiting for network and the download
+        is paused as part of PDP bring up.
+        Note that such a download could have been initiated by a variety of
+        applications, including (but not limited to) the browser, an email
+        application, a content marketplace. -->
+    <string name="notification_waiting_for_network">Waiting for network.</string>
+
     <!-- When a download is paused because it's too large to download over a
         mobile connection, and Wi-Fi is unavailable, this string is displayed in
         the system notification for the running download, beneath the download
