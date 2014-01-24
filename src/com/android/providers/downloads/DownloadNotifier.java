@@ -255,7 +255,15 @@ public class DownloadNotifier {
 
                 if (type == TYPE_ACTIVE) {
                     if (hasErrorStatus) {
-                        builder.setContentText(res.getText(R.string.notification_download_failed));
+                        if (info.mStatus == Downloads.Impl.STATUS_WAITING_FOR_NETWORK) {
+                            Log.d(TAG, "Show notification waiting for network");
+                            builder.setContentText(res.getText(
+                                    R.string.notification_waiting_for_network));
+                        } else {
+                            Log.d(TAG, "Show notification download failed");
+                            builder.setContentText(res.getText(
+                                    R.string.notification_download_failed));
+                        }
                     } else if (!TextUtils.isEmpty(info.mDescription)) {
                         builder.setContentText(info.mDescription);
                     } else {
