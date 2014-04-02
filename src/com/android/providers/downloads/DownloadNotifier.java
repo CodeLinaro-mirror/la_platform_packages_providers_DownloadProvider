@@ -162,9 +162,19 @@ public class DownloadNotifier {
                 }
             }
 
+            // Check error status about downloads. If error exists, will
+            // update icon and content title/content text in notification.
+            boolean hasErrorStatus = false;
+            for (DownloadInfo info : cluster) {
+                if (isErrorStatus(info.mStatus)) {
+                    hasErrorStatus = true;
+                    break;
+                }
+            }
+
             // Show relevant icon
             if (type == TYPE_ACTIVE) {
-                if (hasPausedStatus) {
+                if (hasPausedStatus || hasErrorStatus) {
                     builder.setSmallIcon(android.R.drawable.stat_sys_warning);
                 } else {
                     builder.setSmallIcon(android.R.drawable.stat_sys_download);
@@ -218,9 +228,9 @@ public class DownloadNotifier {
             // Calculate and show progress
             String remainingText = null;
             String percentText = null;
+            long total = 0;
             if (type == TYPE_ACTIVE) {
                 long current = 0;
-                long total = 0;
                 long speed = 0;
                 synchronized (mDownloadSpeed) {
                     for (DownloadInfo info : cluster) {
@@ -261,6 +271,11 @@ public class DownloadNotifier {
                             builder.setContentText(res.getText(R.string.download_paused));
                         else
                             builder.setContentText(res.getText(R.string.download_queued));
+                    } else if (hasErrorStatus) {
+                        builder.setContentText(res.getText(
+                                R.string.notification_download_failed));
+                        if (total == 0)
+                           builder.setProgress(100, 0, false);
                     } else if (!TextUtils.isEmpty(info.mDescription)) {
                         builder.setContentText(info.mDescription);
                     } else {
@@ -293,6 +308,11 @@ public class DownloadNotifier {
                 if (type == TYPE_ACTIVE) {
                     if (hasPausedStatus) {
                         builder.setContentTitle(res.getString(R.string.download_queued));
+                    } else if (hasErrorStatus) {
+                        builder.setContentText(res.getText(
+                                R.string.notification_download_failed));
+                        if (total == 0)
+                           builder.setProgress(100, 0, false);
                     } else {
                         builder.setContentTitle(res.getQuantityString(
                                 R.plurals.notif_summary_active, cluster.size(), cluster.size()));
@@ -395,6 +415,15 @@ public class DownloadNotifier {
     private static boolean isPausedStatus(int status) {
         return status == Downloads.Impl.STATUS_WAITING_FOR_NETWORK ||
                 status == Downloads.Impl.STATUS_PAUSED_BY_MANUAL;
+    }
+
+    private static boolean isErrorStatus(int status) {
+        boolean isErrorStatus = Downloads.Impl.isStatusError(status)
+                             || Downloads.Impl.isStatusClientError(status)
+                             || Downloads.Impl.isStatusServerError(status)
+                             || status == Downloads.Impl.STATUS_INSUFFICIENT_SPACE_ERROR
+                             || status == Downloads.Impl.STATUS_DEVICE_NOT_FOUND_ERROR;
+        return isErrorStatus;
     }
 
 }
