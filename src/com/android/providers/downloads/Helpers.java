@@ -134,6 +134,11 @@ public class Helpers {
             Log.v(Constants.TAG, "target file: " + filename + extension);
         }
 
+        // Check the illegal file name
+        String realfilenamebak = filename.substring(filename.lastIndexOf('/')+1);
+        String realfilename = replaceInvalidVfatCharacters(realfilenamebak);
+        filename = filename.replace(realfilenamebak,realfilename);
+
         synchronized (sUniqueLock) {
             final String path = chooseUniqueFilenameLocked(
                     destination, filename, extension, recoveryDir);
