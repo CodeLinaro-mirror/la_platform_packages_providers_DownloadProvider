@@ -867,7 +867,10 @@ public class DownloadThread implements Runnable {
     private void notifyThroughDatabase(
             State state, int finalStatus, String errorMsg, int numFailed) {
         ContentValues values = new ContentValues();
-        values.put(Downloads.Impl.COLUMN_STATUS, finalStatus);
+        if(finalStatus != Downloads.Impl.STATUS_PAUSED_BY_MANUAL) {
+            //the status already update in the beginning
+            values.put(Downloads.Impl.COLUMN_STATUS, finalStatus);
+        }
         values.put(Downloads.Impl._DATA, state.mFilename);
         values.put(Downloads.Impl.COLUMN_MIME_TYPE, state.mMimeType);
         values.put(Downloads.Impl.COLUMN_LAST_MODIFICATION, mSystemFacade.currentTimeMillis());
