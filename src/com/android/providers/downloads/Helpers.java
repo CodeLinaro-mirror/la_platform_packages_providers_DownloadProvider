@@ -342,12 +342,22 @@ public class Helpers {
         final File[] whitelist;
         try {
             file = file.getCanonicalFile();
-            whitelist = new File[] {
-                    context.getFilesDir().getCanonicalFile(),
-                    context.getCacheDir().getCanonicalFile(),
-                    Environment.getDownloadCacheDirectory().getCanonicalFile(),
-                    Environment.getExternalStorageDirectory().getCanonicalFile(),
-            };
+            if (StorageUtils.isSecondStorageSupported()) {
+                whitelist = new File[] {
+                        context.getFilesDir().getCanonicalFile(),
+                        context.getCacheDir().getCanonicalFile(),
+                        Environment.getDownloadCacheDirectory().getCanonicalFile(),
+                        Environment.getExternalStorageDirectory().getCanonicalFile(),
+                        new File(StorageUtils.getExternalStorageDirectory(context)),
+                };
+            } else {
+                whitelist = new File[] {
+                        context.getFilesDir().getCanonicalFile(),
+                        context.getCacheDir().getCanonicalFile(),
+                        Environment.getDownloadCacheDirectory().getCanonicalFile(),
+                        Environment.getExternalStorageDirectory().getCanonicalFile(),
+                };
+            }
         } catch (IOException e) {
             Log.w(TAG, "Failed to resolve canonical path: " + e);
             return false;

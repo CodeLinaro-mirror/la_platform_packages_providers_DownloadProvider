@@ -29,6 +29,7 @@ import android.content.pm.IPackageDataObserver;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Environment;
+import android.os.storage.StorageVolume;
 import android.provider.Downloads;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -227,6 +228,30 @@ public class StorageUtils {
             }
         }
         return files;
+    }
+
+    /**
+     * Whether support Second Storage
+     *
+     * @return boolean true support Second Storage, false will not
+     */
+    public static boolean isSecondStorageSupported() {
+        return true;
+    }
+
+    public static String getExternalStorageDirectory(Context context) {
+        String sdCardDir = null;
+        android.os.storage.StorageManager storageManager =
+                (android.os.storage.StorageManager) context
+                        .getSystemService(Context.STORAGE_SERVICE);
+        StorageVolume[] volumes = storageManager.getVolumeList();
+        for (int i = 0; i < volumes.length; i++) {
+            if (volumes[i].isRemovable() && volumes[i].allowMassStorage()) {
+                sdCardDir = volumes[i].getPath();
+                break;
+            }
+        }
+        return sdCardDir;
     }
 
     /**
