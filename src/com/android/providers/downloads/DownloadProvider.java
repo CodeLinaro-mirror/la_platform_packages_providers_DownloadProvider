@@ -704,8 +704,14 @@ public final class DownloadProvider extends ContentProvider {
         }
         try {
             final String canonicalPath = new File(path).getCanonicalPath();
-            final String externalPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-            if (!canonicalPath.startsWith(externalPath)) {
+            final String phoneStoragePath =
+                    Environment.getExternalStorageDirectory().getAbsolutePath();
+            String sdCardStoragePath = null;
+            if (StorageUtils.isSecondStorageSupported()) {
+                sdCardStoragePath = StorageUtils.getExternalStorageDirectory(getContext());
+            }
+            if (!canonicalPath.startsWith(phoneStoragePath) &&
+                    !(sdCardStoragePath != null && path.startsWith(sdCardStoragePath))) {
                 throw new SecurityException("Destination must be on external storage: " + uri);
             }
         } catch (IOException e) {
