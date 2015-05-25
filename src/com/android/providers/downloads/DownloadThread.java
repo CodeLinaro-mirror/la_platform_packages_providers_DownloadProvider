@@ -832,6 +832,7 @@ public class DownloadThread implements Runnable {
         // Defeat transparent gzip compression, since it doesn't allow us to
         // easily resume partial downloads.
         conn.setRequestProperty("Accept-Encoding", "identity");
+        conn.setRequestProperty("Connection","close");
 
         // Defeat connection reuse, since otherwise servers may continue
         // streaming large downloads after cancelled.
