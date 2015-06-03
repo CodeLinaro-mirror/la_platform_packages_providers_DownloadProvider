@@ -29,8 +29,13 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.drm.DrmHelper;
+import android.drm.DrmManagerClientWrapper;
+import android.drm.DrmStore.Action;
+import android.drm.DrmStore.RightsStatus;
 import android.net.Uri;
 import android.provider.Downloads.Impl.RequestHeaders;
+import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
@@ -78,6 +83,23 @@ public class OpenHelper {
             mimeType = DownloadDrmHelper.getOriginalMimeType(context, file, mimeType);
 
             final Intent intent = new Intent(Intent.ACTION_VIEW);
+
+            String path = file.getAbsolutePath();
+            if (DrmHelper.isDrmFile(path)) {
+                if (DrmHelper.validateLicense(context, path, null)) {
+                    mimeType = DrmHelper.getOriginalMimeType(context, path);
+                    if (!TextUtils.isEmpty(mimeType)) {
+                        if (mimeType.startsWith("image/")
+                                || mimeType.startsWith("video/")) {
+                            intent.setPackage("com.android.gallery3d");
+                        } else if (mimeType.startsWith("audio/")) {
+                            intent.setPackage("com.android.music");
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "Drm file does not have valid license to open");
+                }
+            }
 
             if ("application/vnd.android.package-archive".equals(mimeType)) {
                 // PackageInstaller doesn't like content URIs, so open file

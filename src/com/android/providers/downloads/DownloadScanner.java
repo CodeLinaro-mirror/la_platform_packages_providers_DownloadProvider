@@ -24,6 +24,7 @@ import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
+import android.drm.DrmHelper;
 import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
 import android.net.Uri;
@@ -34,6 +35,7 @@ import android.util.Log;
 import com.android.internal.annotations.GuardedBy;
 import com.google.common.collect.Maps;
 
+import java.io.File;
 import java.util.HashMap;
 
 /**
@@ -101,7 +103,20 @@ public class DownloadScanner implements MediaScannerConnectionClient {
     public void requestScan(DownloadInfo info) {
         if (LOGV) Log.v(TAG, "requestScan() for " + info.mFileName);
         synchronized (mConnection) {
-            final ScanRequest req = new ScanRequest(info.mId, info.mFileName, info.mMimeType);
+            // Drm Start
+            String mimeType = null;
+            if (DrmHelper.isDrmFile(info.mFileName)) {
+                // Context context = getApplicationContext();
+                File file = new File(info.mFileName);
+                mimeType = DownloadDrmHelper.getOriginalMimeType(mContext, file, mimeType);
+            } else {
+                mimeType = info.mMimeType;
+            }
+            Log.d(Constants.TAG, "drm:requestScanFile:info.mFileName= " + info.mFileName
+                    + " mimeType= " + mimeType);
+            final ScanRequest req = new ScanRequest(info.mId, info.mFileName, mimeType);
+            // Drm End
+
             mPending.put(req.path, req);
 
             if (mConnection.isConnected()) {

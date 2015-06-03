@@ -38,6 +38,12 @@ import java.util.regex.Pattern;
  * Some helper functions for the download manager
  */
 public class Helpers {
+    // Drm START
+    public static final String MIMETYPE_DRM_MESSAGE = "application/vnd.oma.drm.message";
+    public static final String MIMETYPE_DRM_CONTENT = "application/vnd.oma.drm.content";
+    public static final String DRM_MIMETYPE_RIGHTS_XML = "application/vnd.oma.drm.rights+xml";
+    public static final String DRM_MIMETYPE_RIGHTS_WXML = "application/vnd.oma.drm.rights+wbxml";
+    // Drm END
     public static Random sRandom = new Random(SystemClock.uptimeMillis());
 
     /** Regex used to parse content-disposition headers */
@@ -101,7 +107,8 @@ public class Helpers {
         }
 
         if (DownloadDrmHelper.isDrmConvertNeeded(mimeType)) {
-            name = DownloadDrmHelper.modifyDrmFwLockFileExtension(name);
+            name = DownloadDrmHelper.modifyDrmFileExtension(name, mimeType);
+
         }
 
         final String prefix;
@@ -665,4 +672,30 @@ public class Helpers {
                     (c >= '0' && c <= '9');
         }
     }
+
+    // Drm START
+    public static boolean isDrmDownload(String mimeType) {
+        if (mimeType == null) return false;
+
+        String type = mimeType.toLowerCase();
+        if (type.equals( MIMETYPE_DRM_MESSAGE)
+                || type.equals(MIMETYPE_DRM_CONTENT)
+                || type.equals(DRM_MIMETYPE_RIGHTS_XML)
+                || type.equals(DRM_MIMETYPE_RIGHTS_WXML)) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isDrmRightsFile(String mimeType) {
+        if (mimeType == null) return false;
+
+        String type = mimeType.toLowerCase();
+        if (type.equals(DRM_MIMETYPE_RIGHTS_XML)
+                || type.equals(DRM_MIMETYPE_RIGHTS_WXML)) {
+            return true;
+        }
+        return false;
+    }
+    // Drm END
 }

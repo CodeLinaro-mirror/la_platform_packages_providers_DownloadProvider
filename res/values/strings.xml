@@ -226,4 +226,5 @@
     <!-- Representation of download progress percentage when running. [CHAR LIMIT=24] -->
     <string name="download_running_percent">In progress, <xliff:g id="percentage" example="50%">%s</xliff:g></string>
 
+    <string name="action_consumes_rights">Rights will be consumed for playing this media.</string>
 </resources>

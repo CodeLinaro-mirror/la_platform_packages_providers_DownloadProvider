@@ -16,6 +16,8 @@
 
 package com.android.providers.downloads;
 
+import static android.app.DownloadManager.COLUMN_LOCAL_FILENAME;
+import static android.app.DownloadManager.COLUMN_MEDIA_TYPE;
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
 import static com.android.providers.downloads.Constants.TAG;
@@ -28,6 +30,11 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.drm.DrmManagerClientWrapper;
+import android.drm.DrmRights;
+import android.drm.DrmStore.Action;
+import android.drm.DrmStore.DrmDeliveryType;
+import android.drm.DrmStore.RightsStatus;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -40,6 +47,8 @@ import android.util.Slog;
 import android.widget.Toast;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import java.io.File;
 
 /**
  * Receives system broadcasts (boot, network connectivity)
