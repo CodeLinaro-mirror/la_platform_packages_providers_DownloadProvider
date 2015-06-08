@@ -30,7 +30,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.drm.DrmManagerClientWrapper;
+import android.drm.DrmManagerClient;
 import android.drm.DrmRights;
 import android.drm.DrmStore.Action;
 import android.drm.DrmStore.DrmDeliveryType;
@@ -211,7 +211,7 @@ public class DownloadReceiver extends BroadcastReceiver {
 
         Log.d(Constants.TAG, "openDownload:path of the file is " + filename);
         if (filename != null && filename.endsWith(".dcf")) {
-            DrmManagerClientWrapper drmClient = new DrmManagerClientWrapper(context);
+            DrmManagerClient drmClient = new DrmManagerClient(context);
             int status = -1;
 
             if (mimetype.startsWith("video/") || mimetype.startsWith("audio/") ) {

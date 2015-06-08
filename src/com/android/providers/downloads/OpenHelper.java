@@ -26,16 +26,11 @@ import static com.android.providers.downloads.Constants.TAG;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.drm.DrmManagerClientWrapper;
-import android.drm.DrmStore.Action;
-import android.drm.DrmStore.RightsStatus;
 import android.net.Uri;
 import android.provider.Downloads.Impl.RequestHeaders;
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
@@ -80,36 +75,7 @@ public class OpenHelper {
             final Uri localUri = getCursorUri(cursor, COLUMN_LOCAL_URI);
             final File file = getCursorFile(cursor, COLUMN_LOCAL_FILENAME);
             String mimeType = getCursorString(cursor, COLUMN_MEDIA_TYPE);
-
-            String filename = file.getName();
-            if (!TextUtils.isEmpty(filename)
-                    && (filename
-                            .endsWith(DownloadDrmHelper.EXTENSION_DRM_MESSAGE) || filename
-                            .endsWith(DownloadDrmHelper.EXTENSION_INTERNAL_DRM))) {
-                String path = file.toString();
-                int status = -1;
-                mimeType = DownloadDrmHelper.getOriginalMimeType(context, file,
-                        mimeType);
-                path = path.replace("/storage/emulated/0",
-                        "/storage/emulated/legacy");
-                DrmManagerClientWrapper drmClient = new DrmManagerClientWrapper(
-                        context);
-                if (mimeType.startsWith("image")) {
-                    status = drmClient.checkRightsStatus(path, Action.DISPLAY);
-                } else {
-                    status = drmClient.checkRightsStatus(path, Action.PLAY);
-                }
-
-                if (RightsStatus.RIGHTS_VALID != status) {
-                    ContentValues values = drmClient.getMetadata(path);
-                    String address = values.getAsString("Rights-Issuer");
-                    Intent intent = new Intent(DownloadDrmHelper.BUY_LICENSE);
-                    intent.putExtra("DRM_FILE_PATH", address);
-                    context.sendBroadcast(intent);
-                    Log.e(TAG, "Drm License expared! can not proceed ahead");
-                    return null;
-                }
-            }
+            mimeType = DownloadDrmHelper.getOriginalMimeType(context, file, mimeType);
 
             final Intent intent = new Intent(Intent.ACTION_VIEW);
 
