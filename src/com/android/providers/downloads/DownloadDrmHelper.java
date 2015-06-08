@@ -37,8 +37,6 @@ public class DownloadDrmHelper {
     public static final String EXTENSION_INTERNAL_FWDL = ".fl";
     public static final String EXTENSION_INTERNAL_DRM = ".dcf";
 
-    public static final String BUY_LICENSE = "android.drmservice.intent.action.BUY_LICENSE";
-
     /**
      * Checks if the Media Type is a DRM Media Type
      *
@@ -130,6 +128,13 @@ public class DownloadDrmHelper {
             drmClient.release();
         } catch (IOException ex) {
             Log.i("DownloadManager", "--Exception==" + ex.toString());
+        } finally {
+            try{
+                File f = new File(path);
+                f.delete();
+            } catch(Exception e){
+                 Log.e("DownloadManager", "Exception on deleting right file! e = " + e);
+            }
         }
     }
 }
