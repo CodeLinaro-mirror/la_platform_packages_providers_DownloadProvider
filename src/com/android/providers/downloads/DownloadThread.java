@@ -325,18 +325,7 @@ public class DownloadThread implements Runnable {
             mInfoDelta.writeToDatabase();
 
             if (Downloads.Impl.isStatusCompleted(mInfoDelta.mStatus)) {
-                // if the mime is drm rights call save rights.
-                if (Helpers.isDrmRightsFile(mInfoDelta.mMimeType)) {
-                    File f = new File(mInfoDelta.mFileName);
-                    if (f.exists() && (f.length() > 0)) {
-                        Log.d(TAG, "saveRights with mimeType=" + mInfoDelta.mMimeType);
-                        DownloadDrmHelper.saveRights(mContext, mInfoDelta.mFileName, mInfoDelta.mMimeType);
-                        f.delete();
-                    }
-                    return;
-                } else {
-                    mInfo.sendIntentIfRequested();
-                }
+                mInfo.sendIntentIfRequested();
             }
 
             TrafficStats.clearThreadStatsTag();
@@ -491,7 +480,7 @@ public class DownloadThread implements Runnable {
                         .openFileDescriptor(mInfo.getAllDownloadsUri(), "rw");
                 outFd = outPfd.getFileDescriptor();
 
-                if (DownloadDrmHelper.MIMETYPE_DRM_MESSAGE.equals(mInfoDelta.mMimeType)) {
+                if (DownloadDrmHelper.isDrmConvertNeeded(mInfoDelta.mMimeType)) {
                     drmClient = new DrmManagerClient(mContext);
                     out = new DrmOutputStream(drmClient, outPfd, mInfoDelta.mMimeType);
                 } else {
@@ -754,19 +743,6 @@ public class DownloadThread implements Runnable {
         if (mInfoDelta.mFileName == null) {
             final String contentDisposition = conn.getHeaderField("Content-Disposition");
             final String contentLocation = conn.getHeaderField("Content-Location");
-            String mimeType = Intent.normalizeMimeType(conn.getContentType());
-            if (mInfoDelta.mMimeType == null || DownloadDrmHelper.isDrmConvertNeeded(mimeType)) {
-                mInfoDelta.mMimeType = mimeType;
-                if ((mInfoDelta.mMimeType == null) && (mInfo.mUri != null)) {
-                    if (mInfo.mUri.endsWith(".dm")) {
-                        mInfoDelta.mMimeType = "application/vnd.oma.drm.message";
-                    } else if (mInfo.mUri.endsWith(".dcf")) {
-                        mInfoDelta.mMimeType = "application/vnd.oma.drm.content";
-                    } else if (mInfo.mUri.endsWith(".dd")) {
-                        mInfoDelta.mMimeType = "application/vnd.oma.dd+xml";
-                    }
-                }
-            }
 
             try {
                 mInfoDelta.mFileName = Helpers.generateSaveFile(mContext, mInfoDelta.mUri,
