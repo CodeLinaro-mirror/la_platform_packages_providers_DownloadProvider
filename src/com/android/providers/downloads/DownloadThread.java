@@ -41,6 +41,7 @@ import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.drm.OmaDrmHelper;
 import android.drm.DrmManagerClient;
 import android.drm.DrmOutputStream;
 import android.net.ConnectivityManager;
@@ -325,7 +326,17 @@ public class DownloadThread implements Runnable {
             mInfoDelta.writeToDatabase();
 
             if (Downloads.Impl.isStatusCompleted(mInfoDelta.mStatus)) {
-                mInfo.sendIntentIfRequested();
+                // if the mime is drm rights call save rights.
+                if (OmaDrmHelper.isDrmRightsFile(mInfoDelta.mMimeType)) {
+                    File f = new File(mInfoDelta.mFileName);
+                    if (f.exists() && (f.length() > 0)) {
+                        Log.d(TAG, "saveRights with mimeType=" + mInfoDelta.mMimeType);
+                        OmaDrmHelper.saveRights(mContext, mInfoDelta.mFileName, mInfoDelta.mMimeType);
+                        mContext.getContentResolver().delete(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, " _id = " + mId, null);
+                    }
+                } else {
+                    mInfo.sendIntentIfRequested();
+                }
             }
 
             TrafficStats.clearThreadStatsTag();
