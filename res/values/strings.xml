@@ -242,5 +242,4 @@
     </plurals>
     <string name="download_queued_percent">Queued, <xliff:g id="number">%d</xliff:g><xliff:g id="percent">%%</xliff:g></string>
 
-    <string name="action_consumes_rights">Rights will be consumed for playing this media.</string>
 </resources>

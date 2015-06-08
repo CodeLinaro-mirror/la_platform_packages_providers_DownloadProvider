@@ -16,8 +16,6 @@
 
 package com.android.providers.downloads;
 
-import static android.app.DownloadManager.COLUMN_LOCAL_FILENAME;
-import static android.app.DownloadManager.COLUMN_MEDIA_TYPE;
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
 import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
 import static com.android.providers.downloads.Constants.TAG;
@@ -30,11 +28,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.drm.DrmManagerClient;
-import android.drm.DrmRights;
-import android.drm.DrmStore.Action;
-import android.drm.DrmStore.DrmDeliveryType;
-import android.drm.DrmStore.RightsStatus;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -47,8 +40,6 @@ import android.util.Slog;
 import android.widget.Toast;
 
 import com.google.common.annotations.VisibleForTesting;
-
-import java.io.File;
 
 /**
  * Receives system broadcasts (boot, network connectivity)
@@ -190,56 +181,6 @@ public class DownloadReceiver extends BroadcastReceiver {
      * {@link DownloadManager#COLUMN_ID}.
      */
     private void openDownload(Context context, long id) {
-        // Drm Start
-        final DownloadManager downManager = (DownloadManager) context.getSystemService(
-                Context.DOWNLOAD_SERVICE);
-        downManager.setAccessAllDownloads(true);
-
-        final Cursor cursor = downManager.query(new DownloadManager.Query().setFilterById(id));
-        if (!cursor.moveToFirst()) {
-            throw new IllegalArgumentException("Missing download " + id);
-        }
-
-        final File file = new File(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOCAL_FILENAME)));
-        String mimetype = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_MEDIA_TYPE));
-        mimetype = DownloadDrmHelper.getOriginalMimeType(context, file, mimetype);
-        String filename = file.getName();
-        // Drm File path error-Start
-        String path = file.getAbsolutePath();
-        Log.d(Constants.TAG, "path =" + path);
-        // Drm File path error-End
-
-        Log.d(Constants.TAG, "openDownload:path of the file is " + filename);
-        if (filename != null && filename.endsWith(".dcf")) {
-            DrmManagerClient drmClient = new DrmManagerClient(context);
-            int status = -1;
-
-            if (mimetype.startsWith("video/") || mimetype.startsWith("audio/") ) {
-                status = drmClient.checkRightsStatus(path, Action.PLAY); // File path error
-            } else if (mimetype.startsWith("image/")) {
-                status = drmClient.checkRightsStatus(path, Action.DISPLAY); // File path error
-            }
-            Log.d(Constants.TAG, "openDownload:status fron drmClient.checkRightsStatus is "
-                    + Integer.toString(status));
-
-            ContentValues values = drmClient.getMetadata(filename);
-
-            if (RightsStatus.RIGHTS_VALID != status) {
-                String address = values.getAsString("Rights-Issuer");
-                Intent intent = new Intent("android.drmservice.intent.action.BUY_LICENSE");
-                intent.putExtra("DRM_FILE_PATH", address);
-                context.sendBroadcast(intent);
-                return;
-            }
-
-            int drmType = values.getAsInteger("DRM-TYPE");
-            Log.d(Constants.TAG, "DRM-TYPE = " + Integer.toString(drmType));
-            if (drmType > DrmDeliveryType.FORWARD_LOCK) { // Not FL
-                Toast.makeText(context, R.string.action_consumes_rights,
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-        // Drm END
         if (!OpenHelper.startViewIntent(context, id, Intent.FLAG_ACTIVITY_NEW_TASK)) {
             Toast.makeText(context, R.string.download_no_application_title, Toast.LENGTH_SHORT)
                     .show();
