@@ -29,9 +29,11 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.drm.OmaDrmHelper;
 import android.net.Uri;
 import android.provider.Downloads.Impl.RequestHeaders;
 import android.util.Log;
+import android.text.TextUtils;
 
 import java.io.File;
 
@@ -78,6 +80,18 @@ public class OpenHelper {
             mimeType = DownloadDrmHelper.getOriginalMimeType(context, file, mimeType);
 
             final Intent intent = new Intent(Intent.ACTION_VIEW);
+
+            String path = file.getAbsolutePath();
+            if (OmaDrmHelper.isDrmFile(path)) {
+                if (!TextUtils.isEmpty(mimeType)) {
+                    if (mimeType.startsWith("image/")
+                            || mimeType.startsWith("video/")) {
+                        intent.setPackage("com.android.gallery3d");
+                    } else if (mimeType.startsWith("audio/")) {
+                        intent.setClassName("com.android.music", "com.android.music.AudioPreview");
+                    }
+                }
+            }
 
             if ("application/vnd.android.package-archive".equals(mimeType)) {
                 // PackageInstaller doesn't like content URIs, so open file
