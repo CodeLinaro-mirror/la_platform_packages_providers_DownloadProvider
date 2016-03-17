@@ -16,6 +16,8 @@
 
 package com.android.providers.downloads.ui;
 
+import java.io.File;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -62,7 +64,7 @@ public class TrampolineActivity extends Activity {
 
         final Cursor cursor = dm.query(new Query().setFilterById(id));
         try {
-            if (cursor.moveToFirst()) {
+            if (cursor.moveToFirst() && isFileExits(cursor)) {
                 status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                 reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
             } else {
@@ -103,6 +105,19 @@ public class TrampolineActivity extends Activity {
                 FailedDialogFragment.show(getFragmentManager(), id, reason);
                 break;
         }
+    }
+
+    private boolean isFileExits(Cursor cursor) {
+        if (cursor != null) {
+            int fileNameIndex = cursor
+                    .getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME);
+            String fileName = cursor.getString(fileNameIndex);
+            File file = new File(fileName);
+            if (file != null && file.exists()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void sendRunningDownloadClickedBroadcast(long id) {
