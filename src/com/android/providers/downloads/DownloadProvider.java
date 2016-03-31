@@ -1220,6 +1220,11 @@ public final class DownloadProvider extends ContentProvider {
                 throw new UnsupportedOperationException("Cannot delete URI: " + uri);
         }
         notifyContentChanged(uri, match);
+
+        // Always start service to handle notifications and/or scanning
+        final Context context = getContext();
+        context.startService(new Intent(context, DownloadService.class));
+
         return count;
     }
 
