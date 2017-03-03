@@ -66,8 +66,8 @@
           <path-permission android:pathPrefix="/my_downloads"
                            android:permission="android.permission.INTERNET"/>
           <!-- to access /all_downloads, ACCESS_ALL_DOWNLOADS permission is required -->
-          <path-permission android:pathPrefix="/all_downloads"
-                           android:permission="android.permission.ACCESS_ALL_DOWNLOADS"/>
+          <!--<path-permission android:pathPrefix="/all_downloads"
+                           android:permission="android.permission.ACCESS_ALL_DOWNLOADS"/> -->
           <!-- Temporary, for backwards compatibility -->
           <path-permission android:pathPrefix="/download"
                            android:permission="android.permission.INTERNET"/>
