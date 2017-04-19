@@ -18,7 +18,6 @@ package com.android.providers.downloads;
 
 import static android.provider.BaseColumns._ID;
 import static android.provider.Downloads.Impl.COLUMN_DESTINATION;
-import static android.provider.Downloads.Impl.COLUMN_MEDIAPROVIDER_URI;
 import static android.provider.Downloads.Impl.COLUMN_MEDIA_SCANNED;
 import static android.provider.Downloads.Impl.COLUMN_MIME_TYPE;
 import static android.provider.Downloads.Impl.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD;
@@ -29,6 +28,7 @@ import android.app.DownloadManager;
 import android.app.DownloadManager.Request;
 import android.app.job.JobScheduler;
 import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -468,6 +468,19 @@ public final class DownloadProvider extends ContentProvider {
         if (appInfo != null) {
             mDefContainerUid = appInfo.uid;
         }
+
+        // Grant access permissions for all known downloads to the owning apps
+        final SQLiteDatabase db = mOpenHelper.getReadableDatabase();
+        final Cursor cursor = db.query(DB_TABLE, new String[] {
+                Downloads.Impl._ID, Constants.UID }, null, null, null, null, null);
+        try {
+            while (cursor.moveToNext()) {
+                grantAllDownloadsPermission(cursor.getLong(0), cursor.getInt(1));
+            }
+        } finally {
+            cursor.close();
+        }
+
         return true;
     }
 
@@ -690,6 +703,7 @@ public final class DownloadProvider extends ContentProvider {
         }
 
         insertRequestHeaders(db, rowID, values);
+        grantAllDownloadsPermission(rowID, Binder.getCallingUid());
         notifyContentChanged(uri, match);
 
         final long token = Binder.clearCallingIdentity();
@@ -1063,10 +1077,14 @@ public final class DownloadProvider extends ContentProvider {
 
         Helpers.validateSelection(where, sAppReadableColumnsSet);
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        final Context context = getContext();
+        final ContentResolver resolver = context.getContentResolver();
+
+        final SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 
         int count;
         boolean updateSchedule = false;
+        boolean isCompleting = false;
 
         ContentValues filteredValues;
         if (Binder.getCallingPid() != Process.myPid()) {
@@ -1107,6 +1125,7 @@ public final class DownloadProvider extends ContentProvider {
             if (isRestart || isUserBypassingSizeLimit) {
                 updateSchedule = true;
             }
+            isCompleting = status != null && Downloads.Impl.isStatusCompleted(status);
         }
 
         int match = sURIMatcher.match(uri);
@@ -1123,14 +1142,20 @@ public final class DownloadProvider extends ContentProvider {
                 final SqlSelection selection = getWhereClause(uri, where, whereArgs, match);
                 count = db.update(DB_TABLE, filteredValues, selection.getSelection(),
                         selection.getParameters());
-                if (updateSchedule) {
+                if (updateSchedule || isCompleting) {
                     final long token = Binder.clearCallingIdentity();
-                    try {
-                        try (Cursor cursor = db.query(DB_TABLE, new String[] { _ID },
-                                selection.getSelection(), selection.getParameters(),
-                                null, null, null)) {
-                            while (cursor.moveToNext()) {
-                                Helpers.scheduleJob(getContext(), cursor.getInt(0));
+                    try (Cursor cursor = db.query(DB_TABLE, null, selection.getSelection(),
+                            selection.getParameters(), null, null, null)) {
+                        final DownloadInfo.Reader reader = new DownloadInfo.Reader(resolver,
+                                cursor);
+                        final DownloadInfo info = new DownloadInfo(context);
+                        while (cursor.moveToNext()) {
+                            reader.updateFromDatabase(info);
+                            if (updateSchedule) {
+                                Helpers.scheduleJob(context, info);
+                            }
+                            if (isCompleting) {
+                                info.sendIntentIfRequested();
                             }
                         }
                     } finally {
@@ -1193,7 +1218,10 @@ public final class DownloadProvider extends ContentProvider {
             Helpers.validateSelection(where, sAppReadableColumnsSet);
         }
 
-        final JobScheduler scheduler = getContext().getSystemService(JobScheduler.class);
+        final Context context = getContext();
+        final ContentResolver resolver = context.getContentResolver();
+        final JobScheduler scheduler = context.getSystemService(JobScheduler.class);
+
         final SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
         int match = sURIMatcher.match(uri);
@@ -1205,16 +1233,18 @@ public final class DownloadProvider extends ContentProvider {
                 final SqlSelection selection = getWhereClause(uri, where, whereArgs, match);
                 deleteRequestHeaders(db, selection.getSelection(), selection.getParameters());
 
-                try (Cursor cursor = db.query(DB_TABLE, new String[] {
-                        _ID, _DATA, COLUMN_MEDIAPROVIDER_URI
-                }, selection.getSelection(), selection.getParameters(), null, null, null)) {
+                try (Cursor cursor = db.query(DB_TABLE, null, selection.getSelection(),
+                        selection.getParameters(), null, null, null)) {
+                    final DownloadInfo.Reader reader = new DownloadInfo.Reader(resolver, cursor);
+                    final DownloadInfo info = new DownloadInfo(context);
                     while (cursor.moveToNext()) {
-                        final long id = cursor.getLong(0);
-                        scheduler.cancel((int) id);
+                        reader.updateFromDatabase(info);
+                        scheduler.cancel((int) info.mId);
 
-                        DownloadStorageProvider.onDownloadProviderDelete(getContext(), id);
+                        revokeAllDownloadsPermission(info.mId);
+                        DownloadStorageProvider.onDownloadProviderDelete(getContext(), info.mId);
 
-                        final String path = cursor.getString(1);
+                        final String path = info.mFileName;
                         if (!TextUtils.isEmpty(path)) {
                             try {
                                 final File file = new File(path).getCanonicalFile();
@@ -1227,7 +1257,7 @@ public final class DownloadProvider extends ContentProvider {
                             }
                         }
 
-                        final String mediaUri = cursor.getString(2);
+                        final String mediaUri = info.mMediaProviderUri;
                         if (!TextUtils.isEmpty(mediaUri)) {
                             final long token = Binder.clearCallingIdentity();
                             try {
@@ -1236,6 +1266,13 @@ public final class DownloadProvider extends ContentProvider {
                             } finally {
                                 Binder.restoreCallingIdentity(token);
                             }
+                        }
+
+                        // If the download wasn't completed yet, we're
+                        // effectively completing it now, and we need to send
+                        // any requested broadcasts
+                        if (!Downloads.Impl.isStatusCompleted(info.mStatus)) {
+                            info.sendIntentIfRequested();
                         }
                     }
                 }
@@ -1248,6 +1285,12 @@ public final class DownloadProvider extends ContentProvider {
                 throw new UnsupportedOperationException("Cannot delete URI: " + uri);
         }
         notifyContentChanged(uri, match);
+        final long token = Binder.clearCallingIdentity();
+        try {
+            Helpers.getDownloadNotifier(getContext()).update();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
         return count;
     }
 
@@ -1258,6 +1301,19 @@ public final class DownloadProvider extends ContentProvider {
     public ParcelFileDescriptor openFile(final Uri uri, String mode) throws FileNotFoundException {
         if (Constants.LOGVV) {
             logVerboseOpenFileInfo(uri, mode);
+        }
+
+        // Perform normal query to enforce caller identity access before
+        // clearing it to reach internal-only columns
+        final Cursor probeCursor = query(uri, new String[] {
+                Downloads.Impl._DATA }, null, null, null);
+        try {
+            if ((probeCursor == null) || (probeCursor.getCount() == 0)) {
+                throw new FileNotFoundException(
+                        "No file found for " + uri + " as UID " + Binder.getCallingUid());
+            }
+        } finally {
+            IoUtils.closeQuietly(probeCursor);
         }
 
         final Cursor cursor = queryCleared(uri, new String[] {
@@ -1441,5 +1497,21 @@ public final class DownloadProvider extends ContentProvider {
         if (!to.containsKey(key)) {
             to.put(key, defaultValue);
         }
+    }
+
+    private void grantAllDownloadsPermission(long id, int uid) {
+        final String[] packageNames = getContext().getPackageManager().getPackagesForUid(uid);
+        if (packageNames == null || packageNames.length == 0) return;
+
+        // We only need to grant to the first package, since the
+        // platform internally tracks based on UIDs
+        final Uri uri = ContentUris.withAppendedId(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, id);
+        getContext().grantUriPermission(packageNames[0], uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    }
+
+    private void revokeAllDownloadsPermission(long id) {
+        final Uri uri = ContentUris.withAppendedId(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, id);
+        getContext().revokeUriPermission(uri, ~0);
     }
 }
