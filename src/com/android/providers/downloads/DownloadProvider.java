@@ -55,6 +55,7 @@ import android.provider.Downloads;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import com.android.internal.util.IndentingPrintWriter;
@@ -69,9 +70,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -206,7 +204,6 @@ public final class DownloadProvider extends ContentProvider {
         addMapping(map, Downloads.Impl.COLUMN_LAST_MODIFICATION);
         addMapping(map, Downloads.Impl.COLUMN_MEDIAPROVIDER_URI);
         addMapping(map, Downloads.Impl.COLUMN_MEDIA_SCANNED);
-        addMapping(map, Downloads.Impl.COLUMN_MEDIASTORE_URI);
         addMapping(map, Downloads.Impl.COLUMN_MIME_TYPE);
         addMapping(map, Downloads.Impl.COLUMN_NO_INTEGRITY);
         addMapping(map, Downloads.Impl.COLUMN_NOTIFICATION_CLASS);
