@@ -21,6 +21,7 @@ import static android.os.Environment.buildExternalStorageAppDataDirs;
 import static android.os.Environment.buildExternalStorageAppMediaDirs;
 import static android.os.Environment.buildExternalStorageAppObbDirs;
 import static android.os.Environment.buildExternalStoragePublicDirs;
+import static android.os.Process.INVALID_UID;
 import static android.provider.Downloads.Impl.COLUMN_DESTINATION;
 import static android.provider.Downloads.Impl.DESTINATION_EXTERNAL;
 import static android.provider.Downloads.Impl.DESTINATION_FILE_URI;
@@ -40,16 +41,13 @@ import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.Environment;
 import android.os.FileUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
-import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
@@ -68,8 +66,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Random;
-import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -617,6 +615,83 @@ public class Helpers {
         return false;
     }
 
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static final Pattern PATTERN_RELATIVE_PATH = Pattern.compile(
+            "(?i)^/storage/(?:emulated/[0-9]+/|[^/]+/)(Android/sandbox/([^/]+)/)?");
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static final Pattern PATTERN_VOLUME_NAME = Pattern.compile(
+            "(?i)^/storage/([^/]+)");
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    private static @Nullable String normalizeUuid(@Nullable String fsUuid) {
+        return fsUuid != null ? fsUuid.toLowerCase(Locale.ROOT) : null;
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractVolumeName(@Nullable String data) {
+        if (data == null) return null;
+        final Matcher matcher = PATTERN_VOLUME_NAME.matcher(data);
+        if (matcher.find()) {
+            final String volumeName = matcher.group(1);
+            if (volumeName.equals("emulated")) {
+                return MediaStore.VOLUME_EXTERNAL_PRIMARY;
+            } else {
+                return normalizeUuid(volumeName);
+            }
+        } else {
+            return MediaStore.VOLUME_INTERNAL;
+        }
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractRelativePath(@Nullable String data) {
+        if (data == null) return null;
+        final Matcher matcher = PATTERN_RELATIVE_PATH.matcher(data);
+        if (matcher.find()) {
+            final int lastSlash = data.lastIndexOf('/');
+            if (lastSlash == -1 || lastSlash < matcher.end()) {
+                // This is a file in the top-level directory, so relative path is "/"
+                // which is different than null, which means unknown path
+                return "/";
+            } else {
+                return data.substring(matcher.end(), lastSlash + 1);
+            }
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}.
+     */
+    public static @Nullable String extractDisplayName(@Nullable String data) {
+        if (data == null) return null;
+        if (data.indexOf('/') == -1) {
+            return data;
+        }
+        if (data.endsWith("/")) {
+            data = data.substring(0, data.length() - 1);
+        }
+        return data.substring(data.lastIndexOf('/') + 1);
+    }
+
     private static boolean containsCanonical(File dir, File file) throws IOException {
         return FileUtils.contains(dir.getCanonicalFile(), file);
     }
@@ -667,12 +742,11 @@ public class Helpers {
 
     @VisibleForTesting
     public static void handleRemovedUidEntries(@NonNull Context context,
-            @NonNull ContentProvider downloadProvider, int removedUid,
-            @Nullable BiConsumer<String, Long> validEntryConsumer) {
+            ContentProvider downloadProvider, int removedUid) {
         final SparseArray<String> knownUids = new SparseArray<>();
         final ArrayList<Long> idsToDelete = new ArrayList<>();
         final ArrayList<Long> idsToOrphan = new ArrayList<>();
-        final String selection = removedUid == -1 ? Constants.UID + " IS NOT NULL"
+        final String selection = removedUid == INVALID_UID ? Constants.UID + " IS NOT NULL"
                 : Constants.UID + "=" + removedUid;
         try (Cursor cursor = downloadProvider.query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
                 new String[] { Downloads.Impl._ID, Constants.UID, COLUMN_DESTINATION, _DATA },
@@ -702,8 +776,6 @@ public class Helpers {
                     } else {
                         idsToDelete.add(downloadId);
                     }
-                } else if (validEntryConsumer != null) {
-                    validEntryConsumer.accept(ownerPackageName, downloadId);
                 }
             }
         }
